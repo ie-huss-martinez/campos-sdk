@@ -1,0 +1,72 @@
+name: Bug report
+description: The library rejects valid records, accepts invalid ones, or builds the wrong document.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. **Security vulnerabilities** go through [private reporting](https://github.com/ie-huss-martinez/campos-sdk/security/advisories/new) instead.
+
+        **Never paste real farm or personal data.** No real NIFs, names, REA or SIEX codes, SIGPAC references or ROPO numbers. Reproduce the problem with invented records instead.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The package version, or the commit if you're working from source.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: target
+    attributes:
+      label: Where it happens
+      options:
+        - Validation of records
+        - CUE JSON
+        - Printable logbook
+        - CSV
+        - Types or packaging
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include each issue's `code` and `path` if validation reported any.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: If the official documentation says otherwise, name the document, its version and the section, such as "Anexo VI 4.10.0, 3.1.5", or the BOE article.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: The smallest set of invented records and calls that shows the problem.
+      render: ts
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Runtime and version, and the bundler if there is one.
+      placeholder: Node 24.11, or Chrome 142 with Vite 8
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues, and this hasn't been reported yet.
+          required: true
+        - label: This report contains no real farm or personal data.
+          required: true
+        - label: This isn't a security vulnerability.
+          required: true

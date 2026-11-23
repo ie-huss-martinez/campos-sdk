@@ -10,3 +10,4 @@ Use [`template.md`](template.md) for new records. Name files `NNNN-short-title.m
 |---|---|---|
 | [0001](0001-independence-from-the-sdk-family.md) | Independence from the `@hussmartinez` SDK family | Accepted |
 | [0002](0002-scope-and-architecture.md) | Scope and architecture: one model, validated at the boundary, rendered per target | Accepted |
+| [0003](0003-tooling-build-and-release.md) | Tooling, build and release | Accepted |

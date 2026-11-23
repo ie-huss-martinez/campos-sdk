@@ -36,6 +36,11 @@ The decisions behind the library are recorded in [`docs/adr`](docs/adr). Start
 with [scope and architecture](docs/adr/0002-scope-and-architecture.md), which
 says what the library does and what it leaves to the application.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities privately, as
+[SECURITY.md](SECURITY.md) describes.
+
 ## Disclaimer
 
 This project is not affiliated with or endorsed by MAPA, FEGA or any

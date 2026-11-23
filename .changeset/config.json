@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@4.0.1/schema.json",
+  "changelog": ["@changesets/changelog-github", { "repo": "ie-huss-martinez/campos-sdk" }],
+  "commit": false,
+  "access": "public",
+  "baseBranch": "main",
+  "changedFilePatterns": [
+    "src/**",
+    "!src/**/*.test.ts",
+    "!src/**/fixtures/**",
+    "!src/**/__snapshots__/**",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "package.json"
+  ],
+  "fixed": [],
+  "linked": [],
+  "updateInternalDependencies": "patch",
+  "ignore": [],
+  "privatePackages": {
+    "version": false,
+    "tag": false
+  }
+}

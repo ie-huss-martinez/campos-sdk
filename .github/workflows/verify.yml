@@ -1,0 +1,116 @@
+name: Verify
+
+# Verifies every pull request and every push to main, and checks pull requests
+# for changesets (ADR 0003). The required status checks are the jobs named
+# `verify` and `changeset`, so keep those names.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 4 * * 1" # Mondays, 04:23 UTC: catches a tool or runtime that broke without a change here
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cancel a superseded run on the same pull request. Every other run has a group
+# of its own commit and event, so each commit on main keeps its own result.
+concurrency:
+  group: verify-${{ github.event.pull_request.number || format('{0}-{1}', github.event_name, github.sha) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  HUSKY: "0"
+
+jobs:
+  # The library's tests on the oldest and newest Node majors it supports. The
+  # full verify below runs on the development version, .node-version.
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22", "26"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          cache: true
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test
+
+  # The required check. It always runs, because a skipped required check counts
+  # as passing, and it fails unless every test job passed.
+  verify:
+    name: verify
+    needs: test
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check the test jobs
+        env:
+          TESTS: ${{ needs.test.result }}
+        run: |
+          if [ "$TESTS" != "success" ]; then
+            echo "::error title=Tests failed::The test jobs' result is \"$TESTS\"."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          cache: true
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm verify
+
+  # The version pull request consumes changesets by design, so it's skipped.
+  changeset:
+    name: changeset
+    if: github.event_name == 'pull_request' && github.head_ref != 'changeset-release/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Full history, so that origin/main is there to compare against.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          cache: true
+
+      - run: pnpm install --frozen-lockfile
+
+      # A package.json change only to devDependencies, scripts,
+      # packageManager or devEngines needs no changeset.
+      - name: Leave out dev-only package.json changes
+        run: node scripts/changeset-dev-only.ts origin/main
+
+      - run: pnpm changeset status --since=origin/main

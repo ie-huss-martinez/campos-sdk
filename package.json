@@ -1,0 +1,79 @@
+{
+  "name": "@hussmartinez/campos-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Builds Spain's Cuaderno Digital de Explotación Agrícola (CUE): SIEX-ready JSON and the printable logbook, from typed records.",
+  "keywords": [
+    "cuaderno-de-explotacion",
+    "cue",
+    "siex",
+    "fega",
+    "agriculture",
+    "farm-management",
+    "spain"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/ie-huss-martinez/campos-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/ie-huss-martinez/campos-sdk/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ie-huss-martinez/campos-sdk.git"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@12.22.0",
+  "scripts": {
+    "prepare": "husky",
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.tooling.json",
+    "lint": "biome check . && node scripts/check-hidden-unicode.ts",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "check:independence": "node scripts/check-independence.ts",
+    "check:package": "publint --strict && attw --pack .",
+    "changeset": "changeset",
+    "verify": "pnpm lint && pnpm check:independence && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm check:package",
+    "verify:fast": "pnpm check:independence && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@biomejs/biome": "2.6.8",
+    "@changesets/changelog-github": "1.0.1",
+    "@changesets/cli": "3.0.3",
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "@commitlint/types": "21.2.3",
+    "@types/node": "24.19.2",
+    "@vitest/coverage-v8": "5.1.1",
+    "husky": "9.1.7",
+    "lint-staged": "17.6.0",
+    "publint": "0.3.25",
+    "tsdown": "0.23.7",
+    "typescript": "7.0.2",
+    "vitest": "5.1.1"
+  }
+}

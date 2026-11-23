@@ -1,0 +1,18 @@
+# This is a single package, not a workspace. pnpm reads its settings from
+# this file.
+
+# Supply-chain hardening (ADR 0003).
+# Dependency install scripts are blocked unless allowlisted here, and the
+# install fails when an unapproved package wants to run one.
+strictDepBuilds: true
+# Don't resolve versions published less than a day ago.
+minimumReleaseAge: 1440
+# Refuse a version with weaker publish provenance than an earlier one.
+trustPolicy: no-downgrade
+# Transitive dependencies must come from the registry, not git or tarball URLs.
+blockExoticSubdeps: true
+# Versions are written exactly, with no range.
+saveExact: true
+permissions:
+  tsdown:
+    skills: false

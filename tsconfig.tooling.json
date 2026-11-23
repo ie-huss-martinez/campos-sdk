@@ -1,0 +1,13 @@
+{
+  // Tests, scripts and configuration files, which run in Node.
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["es2024"],
+    "types": ["node"],
+    "isolatedDeclarations": false,
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src", "scripts", "*.config.ts"],
+  "exclude": []
+}

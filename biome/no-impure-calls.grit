@@ -1,0 +1,10 @@
+// Library code is deterministic (ADR 0002): the same input gives the same
+// output, so nothing in src/ reads randomness or the clock.
+or {
+  `Math.random()` as $call where {
+    register_diagnostic(span=$call, message="Math.random() makes output depend on chance. Library code in src/ is deterministic (ADR 0002).")
+  },
+  `Date` as $date where {
+    register_diagnostic(span=$date, message="Date reads the clock or the time zone. The model uses ISO date strings, and library code in src/ never reads the clock (ADR 0002).")
+  }
+}

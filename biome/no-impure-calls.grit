@@ -1,8 +1,22 @@
 // Library code is deterministic (ADR 0002): the same input gives the same
-// output, so nothing in src/ reads randomness or the clock.
+// output, so nothing in src/ reads randomness or the clock. These match a
+// reference, not only a call, so an alias, such as `const r = Math.random`,
+// a destructured `random`, or `Math` itself under another name, is caught.
 or {
-  `Math.random()` as $call where {
-    register_diagnostic(span=$call, message="Math.random() makes output depend on chance. Library code in src/ is deterministic (ADR 0002).")
+  `Math.random` as $random where {
+    register_diagnostic(span=$random, message="Math.random makes output depend on chance. Library code in src/ is deterministic (ADR 0002).")
+  },
+  `Math[$key]` as $random where {
+    $key <: `"random"`,
+    register_diagnostic(span=$random, message="Math.random makes output depend on chance. Library code in src/ is deterministic (ADR 0002).")
+  },
+  `$pattern = Math` as $random where {
+    $pattern <: r"(?s)\{.*\brandom\b.*",
+    register_diagnostic(span=$random, message="Math.random makes output depend on chance. Library code in src/ is deterministic (ADR 0002).")
+  },
+  `$alias = Math` as $math where {
+    $alias <: r"^[A-Za-z_$][A-Za-z0-9_$]*$",
+    register_diagnostic(span=$math, message="Use Math directly: an alias would hide Math.random from this check (ADR 0002).")
   },
   `Date` as $date where {
     register_diagnostic(span=$date, message="Date reads the clock or the time zone. The model uses ISO date strings, and library code in src/ never reads the clock (ADR 0002).")

@@ -1,7 +1,8 @@
 // Library code is deterministic (ADR 0002): the same input gives the same
-// output, so nothing in src/ reads randomness or the clock. These match a
-// reference, not only a call, so an alias, such as `const r = Math.random`,
-// a destructured `random`, or `Math` itself under another name, is caught.
+// output on any host, so nothing in src/ reads randomness, the clock, or the
+// host's locale or time zone. The patterns match a reference, not only a
+// call, so an alias such as `const r = Math.random`, a destructured `random`,
+// or `Math` under another name is caught too.
 or {
   `Math.random` as $random where {
     register_diagnostic(span=$random, message="Math.random makes output depend on chance. Library code in src/ is deterministic (ADR 0002).")
@@ -17,6 +18,13 @@ or {
   `$alias = Math` as $math where {
     $alias <: r"^[A-Za-z_$][A-Za-z0-9_$]*$",
     register_diagnostic(span=$math, message="Use Math directly: an alias would hide Math.random from this check (ADR 0002).")
+  },
+  `Intl` as $intl where {
+    register_diagnostic(span=$intl, message="Intl formats and compares by the host's locale or time zone unless told otherwise. Library code in src/ formats explicitly, so the same input gives the same bytes on any host (ADR 0002).")
+  },
+  `$value.$method` as $call where {
+    $method <: r"toLocale[A-Za-z]*|localeCompare",
+    register_diagnostic(span=$call, message="This method depends on the host's locale or time zone. Library code in src/ formats and compares explicitly, so the same input gives the same bytes on any host (ADR 0002).")
   },
   `Date` as $date where {
     register_diagnostic(span=$date, message="Date reads the clock or the time zone. The model uses ISO date strings, and library code in src/ never reads the clock (ADR 0002).")

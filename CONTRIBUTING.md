@@ -104,6 +104,14 @@ Nobody publishes by hand ([ADR 0003](docs/adr/0003-tooling-build-and-release.md)
 - It attests that tarball and creates the GitHub Release on that run's commit, replacing a draft an interrupted run left behind.
 - Until the release is complete, every later Release run fails with an error that says so. A version on npm whose tarball this repository didn't build is never attested or released by the workflow.
 
+**After the 7 days,** the run's tarball is gone, and the workflow can't finish the release. The maintainer finishes it by hand, without an attestation, because nothing can attest a build after the fact:
+
+1. Read the version's npm provenance, on its npmjs.com page or with `npm view @hussmartinez/campos-sdk@<version> dist.attestations`. It must name this repository, `release.yml`, and a commit. If it doesn't, stop: this repository didn't publish that version, so treat it as a security incident.
+2. Download the tarball with `npm pack @hussmartinez/campos-sdk@<version>`, which checks it against the registry's integrity, and write its `SHA256SUMS`.
+3. Create the release on that commit: `gh release create v<version> <tarball> SHA256SUMS --target <commit> --title v<version>`, with the version's `CHANGELOG.md` entry as notes, followed by a line saying the release has no artifact attestation and that npm's provenance is the record of its build.
+
+The next Release run then finds the release complete and carries on.
+
 ## Setting up releases
 
 One-time steps for the maintainer.

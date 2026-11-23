@@ -202,6 +202,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 5.1.1
         version: 5.1.1(vitest@5.1.1)
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
       husky:
         specifier: 9.1.7
         version: 9.1.7

@@ -26,6 +26,8 @@
 
     "declaration": true,
     "noEmit": true,
+    // tsdown bundles src/, so imports name the .ts files themselves.
+    "allowImportingTsExtensions": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },

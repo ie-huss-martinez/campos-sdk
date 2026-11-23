@@ -5,8 +5,7 @@
   "compilerOptions": {
     "lib": ["es2024"],
     "types": ["node"],
-    "isolatedDeclarations": false,
-    "allowImportingTsExtensions": true
+    "isolatedDeclarations": false
   },
   "include": ["src", "scripts", "*.config.ts"],
   "exclude": []

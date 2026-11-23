@@ -9,7 +9,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
-      exclude: ["src/**/*.test.ts"],
+      exclude: ["src/**/*.test.ts", "src/fixtures/**"],
       reporter: ["text", "html"],
       // The library produces a legal record, so every line and function of
       // it is exercised by a test (ADR 0003). A line left out says why, with

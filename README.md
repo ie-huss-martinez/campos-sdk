@@ -29,6 +29,12 @@ machine-readable (RD 1039/2025, Commission Implementing Regulation (EU)
 (RD 1051/2022). Every farm-management application has to produce the same
 document; this library aims to do it once, openly and correctly.
 
+## Design
+
+The decisions behind the library are recorded in [`docs/adr`](docs/adr). Start
+with [scope and architecture](docs/adr/0002-scope-and-architecture.md), which
+says what the library does and what it leaves to the application.
+
 ## Disclaimer
 
 This project is not affiliated with or endorsed by MAPA, FEGA or any

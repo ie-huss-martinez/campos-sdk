@@ -26,8 +26,15 @@ application.
 From 1 January 2027, plant-protection records in Spain must be electronic and
 machine-readable (RD 1039/2025, Commission Implementing Regulation (EU)
 2023/564). Fertilisation records have been required since 1 January 2026
-(RD 1051/2022). Every farm-management application has to produce the same
-document; this library aims to do it once, openly and correctly.
+(RD 1051/2022). Every farm-management application has to keep the same
+records, and to build the same document when a holder shares them with the
+administration; this library aims to do it once, openly and correctly.
+
+## Design
+
+The decisions behind the library are recorded in [`docs/adr`](docs/adr). Start
+with [scope and architecture](docs/adr/0002-scope-and-architecture.md), which
+says what the library does and what it leaves to the application.
 
 ## Disclaimer
 

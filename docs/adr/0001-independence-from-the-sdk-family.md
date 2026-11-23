@@ -33,7 +33,7 @@ What it keeps in common with the family is process, not code: Conventional Commi
 - **A package in the family's workspace:** one place for everything, and the tooling would come for free. The reasons for that workspace don't hold here: there is no shared code to change together. The costs would: every change to the family's shared packages would verify this one, its releases would wait on a workflow built for nine packages with browser suites, and its contributors would clone a repository of editors to fix a date format.
 - **A dev dependency on `sdk-config` for its presets:** it would save a handful of configuration files. It would also tie this library's tool upgrades to the family's release cadence, install presets for stylelint, Playwright and dependency rules that mean nothing here, and add a package to the supply chain of a library whose selling point is that it has almost none.
 - **A runtime dependency on `sdk-core` for its error class and helpers:** the library needs a result type and a list of issues, which is a few lines. A dependency for that would be installed by every server that builds a logbook.
-- **Another organisation or an unscoped package name:** nothing depends on it. The scope is the maintainer's identity on npm, and the organisation already has the release set-up.
+- **Another organisation or an unscoped package name:** the choice has no technical effect. The scope is the maintainer's identity on npm, and the organisation already has the release set-up.
 
 ## Consequences
 

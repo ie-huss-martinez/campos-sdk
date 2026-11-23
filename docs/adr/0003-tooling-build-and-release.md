@@ -33,7 +33,7 @@ Its users are farm-management applications: servers in Node, often still in Comm
 |---|---|---|
 | Types | TypeScript 7, strict, with `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess` and `isolatedDeclarations` | Correctness, and explicit types on every export |
 | No platform API in `src/` | `tsconfig.json` with `lib: ["es2022"]` and no `types`; tests and scripts use `tsconfig.tooling.json` | ADR 0002: `fetch`, `process`, `console` and timers are type errors in library code |
-| Determinism in `src/` | Biome, with a GritQL rule that rejects `Date` and `Math.random()`, and a rule that rejects `node:` imports | ADR 0002: no clock, no randomness, no platform module |
+| Determinism in `src/` | Biome, with a GritQL rule that rejects `Date` and any reference to `Math.random`, aliases and destructuring included, and a rule that rejects `node:` imports | ADR 0002: no clock, no randomness, no platform module |
 | Lint and format | Biome | One tool, no plugins from npm |
 | Tests | Vitest, with V8 coverage of `src/`: 100% of lines, statements and functions, 95% of branches | Every line of a legal record's builder is exercised; a line left out says why |
 | Packaging | publint `--strict` and Are the Types Wrong, on the packed tarball | `exports`, declarations and both formats resolve for every kind of consumer |
@@ -65,6 +65,7 @@ Husky runs three hooks: on commit, the hidden-character check and Biome on stage
 - **When the version in `package.json` isn't on npm yet, the workflow publishes it in two jobs:**
   - **a pack job, with read-only permissions,** installs from the lockfile without a cache, runs `pnpm verify`, packs the tarball and records its SHA-256;
   - **a publish job, in the `npm` environment,** never installs or builds. It checks the tarball's SHA-256, publishes exactly that file with npm provenance through trusted publishing, attests it, and creates the tag `v<version>` and a GitHub Release with the changelog entry, the tarball and `SHA256SUMS`. No dependency's code runs where the OIDC token is.
+- **Any later run finishes an interrupted release.** If npm has the version but its GitHub Release is missing, the publish job downloads the tarball npm serves, which `npm pack` checks against the registry's integrity, attests it and creates the release on the commit that set the version. Nothing is published twice.
 - **The first version needs a token,** because npm can't trust a publisher for a package that doesn't exist. The workflow uses `NPM_TOKEN` from the `npm` environment only if it is set, and warns when it does. The maintainer creates it for the first publish and deletes it once the trusted publisher is configured, as CONTRIBUTING.md describes.
 - **Until then, `package.json` says `"private": true`.** Nothing is published, and Changesets ignores the package. The pull request that removes it prepares the first release.
 

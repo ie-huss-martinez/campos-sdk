@@ -98,7 +98,7 @@ Nobody publishes by hand ([ADR 0003](docs/adr/0003-tooling-build-and-release.md)
    - publishes exactly that tarball to npm, with provenance;
    - creates the tag, such as `v0.2.0`, and a GitHub Release with the changelog entry, the tarball, `SHA256SUMS` and an artifact attestation.
 
-If a release fails part-way, fix the cause and re-run the workflow. A version already on npm isn't published again, and a release that already exists is left alone.
+If a release fails part-way, fix the cause, then re-run the workflow or push to `main` again. Every run publishes the version if npm doesn't have it. If npm has it but its GitHub Release is missing, the run creates the release, tagging the commit that set the version, from the tarball npm serves, which npm checks against the registry's integrity. A complete release is left alone.
 
 ## Setting up releases
 

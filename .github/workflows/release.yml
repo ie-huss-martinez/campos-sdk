@@ -9,6 +9,10 @@ name: Release
 #   the tarball, with read-only permissions. The publish job publishes exactly
 #   that tarball, with npm provenance, then creates the tag and the GitHub
 #   Release, with the tarball, SHA256SUMS and an artifact attestation.
+# - When the version is on npm but its GitHub Release is missing, because an
+#   earlier run stopped part-way, the publish job finishes it from the tarball
+#   npm serves, which npm checks against the registry's integrity. So any later
+#   run, a re-run or the next push, completes an interrupted release.
 #
 # While package.json says "private": true, nothing is published.
 #
@@ -92,25 +96,31 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read
+      contents: read # read package.json and the GitHub Releases
     outputs:
-      pending: ${{ steps.plan.outputs.pending }}
+      publish: ${{ steps.plan.outputs.publish }}
+      finish: ${{ steps.plan.outputs.finish }}
       version: ${{ steps.plan.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          sparse-checkout: package.json
+          sparse-checkout: |
+            package.json
+            .node-version
           sparse-checkout-cone-mode: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
 
-      # Pending when the package isn't private and npm doesn't have its
-      # version. Any answer from npm other than "not found" fails the job.
+      # publish: the package isn't private and npm doesn't have its version.
+      # finish: publish, or npm has the version but its GitHub Release is
+      # missing. Any answer from npm other than "not found" fails the job.
       - id: plan
         name: Plan the release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           name=$(node -p 'require("./package.json").name')
           version=$(node -p 'require("./package.json").version')
@@ -118,29 +128,38 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           if [ "$private" = "true" ]; then
             echo "::notice::package.json says \"private\": true, so nothing is published."
-            echo "pending=false" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "finish=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          publish=true
           if published=$(npm view "$name@$version" version 2> "$RUNNER_TEMP/npm-view.log"); then
-            if [ -n "$published" ]; then
-              echo "::notice::$name@$version is already on npm."
-              echo "pending=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
+            [ -n "$published" ] && publish=false
           elif ! grep -q E404 "$RUNNER_TEMP/npm-view.log"; then
             cat "$RUNNER_TEMP/npm-view.log"
             echo "::error::Couldn't ask npm whether $name@$version is published."
             exit 1
           fi
-          echo "::notice::$name@$version will be published."
-          echo "pending=true" >> "$GITHUB_OUTPUT"
+          finish=$publish
+          if [ "$publish" = "false" ]; then
+            if gh release view "v$version" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+              echo "::notice::$name@$version is on npm and has its GitHub Release."
+            else
+              echo "::notice::$name@$version is on npm without its GitHub Release, which this run creates."
+              finish=true
+            fi
+          else
+            echo "::notice::$name@$version will be published."
+          fi
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "finish=$finish" >> "$GITHUB_OUTPUT"
 
   # Verifies and packs exactly what the release publishes, without the
   # release's permissions.
   pack:
     name: pack release
     needs: plan
-    if: needs.plan.outputs.pending == 'true'
+    if: needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -188,11 +207,13 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Publishes only the tarball the pack job verified and uploaded, and never
-  # installs or builds, so no dependency's code runs where the OIDC token is.
+  # Publishes only the tarball the pack job verified and uploaded, or, to finish
+  # a release npm already has, the tarball npm serves. It never installs or
+  # builds, so no dependency's code runs where the OIDC token is.
   publish:
     name: publish
     needs: [plan, pack]
+    if: ${{ !cancelled() && needs.plan.outputs.finish == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: npm
@@ -202,37 +223,67 @@ jobs:
       attestations: write # create the artifact attestation
     env:
       VERSION: ${{ needs.plan.outputs.version }}
-      TARBALL: ${{ needs.pack.outputs.tarball }}
-      SHA256: ${{ needs.pack.outputs.sha256 }}
+      PUBLISH: ${{ needs.plan.outputs.publish }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: |
             package.json
+            .node-version
             CHANGELOG.md
           sparse-checkout-cone-mode: false
+          # The history, to find the commit that set the version.
+          fetch-depth: 0
 
       # No registry-url: trusted publishing needs no token or .npmrc.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
 
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      # Never publish what the pack job didn't verify and pack.
+      - name: Check that the pack job passed
+        if: env.PUBLISH == 'true'
+        env:
+          PACKED: ${{ needs.pack.result }}
+        run: |
+          if [ "$PACKED" != "success" ]; then
+            echo "::error title=Release not verified::The pack job's result is \"$PACKED\", so nothing is published. Fix the cause, then re-run the workflow."
+            exit 1
+          fi
+
+      - if: env.PUBLISH == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-pack
           path: ${{ runner.temp }}/release-pack
 
-      # The downloaded tarball must be the one the pack job verified.
-      - name: Check the tarball
+      # The tarball must be the one the pack job verified, or, for a version
+      # already on npm, the one npm serves: npm pack checks what it downloads
+      # against the registry's integrity.
+      - id: tarball
+        name: Check the tarball
+        env:
+          PACKED_TARBALL: ${{ needs.pack.outputs.tarball }}
+          PACKED_SHA256: ${{ needs.pack.outputs.sha256 }}
         run: |
-          actual=$(sha256sum "$RUNNER_TEMP/release-pack/$TARBALL" | cut -d ' ' -f 1)
-          if [ -z "$SHA256" ] || [ "$actual" != "$SHA256" ]; then
-            echo "::error title=Unverified tarball::$TARBALL has SHA-256 $actual, but the pack job recorded \"$SHA256\", so nothing is published."
-            exit 1
+          out="$RUNNER_TEMP/release-pack"
+          if [ "$PUBLISH" = "true" ]; then
+            tarball="$PACKED_TARBALL"
+            actual=$(sha256sum "$out/$tarball" | cut -d ' ' -f 1)
+            if [ -z "$PACKED_SHA256" ] || [ "$actual" != "$PACKED_SHA256" ]; then
+              echo "::error title=Unverified tarball::$tarball has SHA-256 $actual, but the pack job recorded \"$PACKED_SHA256\", so nothing is published."
+              exit 1
+            fi
+          else
+            name=$(node -p 'require("./package.json").name')
+            mkdir -p "$out"
+            tarball=$(npm pack "$name@$VERSION" --pack-destination "$out" --silent)
           fi
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
 
       - name: Check the npm version
+        if: env.PUBLISH == 'true'
         run: |
           required=11.5.1
           current=$(npm --version)
@@ -245,6 +296,7 @@ jobs:
       # the package: a short-lived token in the npm environment, deleted once
       # the trusted publisher is set (CONTRIBUTING.md#setting-up-releases).
       - name: Use the bootstrap token, if there is one
+        if: env.PUBLISH == 'true'
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -254,29 +306,35 @@ jobs:
             echo "::warning title=Bootstrap token::NPM_TOKEN is set in the npm environment. Delete it once the trusted publisher is configured."
           fi
 
-      # Skipped when a re-run finds the version already on npm, so the steps
-      # after it can finish an interrupted release.
       - name: Publish to npm
-        run: |
-          name=$(node -p 'require("./package.json").name')
-          if [ -n "$(npm view "$name@$VERSION" version 2> /dev/null)" ]; then
-            echo "::notice::$name@$VERSION is already on npm."
-          else
-            npm publish "$RUNNER_TEMP/release-pack/$TARBALL" --access public --provenance
-          fi
+        if: env.PUBLISH == 'true'
+        env:
+          TARBALL: ${{ steps.tarball.outputs.tarball }}
+        run: npm publish "$RUNNER_TEMP/release-pack/$TARBALL" --access public --provenance
 
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: ${{ runner.temp }}/release-pack/${{ needs.pack.outputs.tarball }}
+          subject-path: ${{ runner.temp }}/release-pack/${{ steps.tarball.outputs.tarball }}
 
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          TARBALL: ${{ steps.tarball.outputs.tarball }}
         run: |
           tag="v$VERSION"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             echo "::notice::The release $tag already exists."
             exit 0
+          fi
+          # The tag goes on the commit the tarball came from: this one when
+          # this run published it, or else the commit that set the version.
+          target="$GITHUB_SHA"
+          if [ "$PUBLISH" != "true" ]; then
+            target=$(git log -1 --format=%H -S "\"version\": \"$VERSION\"" -- package.json)
+            if [ -z "$target" ]; then
+              echo "::error::Couldn't find the commit that set version $VERSION in package.json."
+              exit 1
+            fi
           fi
           cd "$RUNNER_TEMP/release-pack"
           sha256sum "$TARBALL" > SHA256SUMS
@@ -287,6 +345,6 @@ jobs:
           ' "$GITHUB_WORKSPACE/CHANGELOG.md" > notes.md
           gh release create "$tag" "$TARBALL" SHA256SUMS \
             --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
+            --target "$target" \
             --title "$tag" \
             --notes-file notes.md

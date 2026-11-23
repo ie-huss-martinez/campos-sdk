@@ -4,13 +4,13 @@ import type { Context } from "./context.ts";
 type Path = readonly PathSegment[];
 
 /**
- * Control characters, and characters that are invisible or reorder the text
- * around them. None belongs in a farm record, and each can hide or disguise
- * text in a printed or exported document.
+ * Characters that are controls, formatting characters or default-ignorable
+ * in Unicode: line breaks and tabs, bidirectional controls, zero-width and
+ * other invisible characters, variation selectors and tag characters, plus
+ * the line and paragraph separators. None belongs in a farm record, and each
+ * can hide or disguise text in a printed or exported document.
  */
-const FORBIDDEN_CHARACTERS =
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: the point of this pattern is to find control characters.
-  /[\u0000-\u001F\u007F-\u009F\u00AD\u061C\u180E\u200B-\u200F\u2028-\u202E\u2060-\u2064\u2066-\u2069\uFEFF\u{E0000}-\u{E007F}]/u;
+const FORBIDDEN_CHARACTERS = /[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}\u2028\u2029]/u;
 
 /** Length in Unicode code points, as JSON Schema's `maxLength` counts it. */
 const codePoints = (text: string): number => {

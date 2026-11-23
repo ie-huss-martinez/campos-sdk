@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { Ajv } from "ajv";
 import { describe, expect, it } from "vitest";
-import { copy, fullLogbook, minimalLogbook, sparseLogbook } from "../fixtures/logbook.ts";
+import { copy, fullLogbook, minimalLogbook, sparseLogbook } from "../../test/fixtures.ts";
 import type { ValidLogbook } from "../model.ts";
 import { validateLogbook } from "../validate.ts";
 import { renderCue } from "./render.ts";

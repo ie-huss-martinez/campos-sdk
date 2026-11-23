@@ -7,6 +7,6 @@
     "types": ["node"],
     "isolatedDeclarations": false
   },
-  "include": ["src", "scripts", "*.config.ts"],
+  "include": ["src", "scripts", "test", "*.config.ts"],
   "exclude": []
 }

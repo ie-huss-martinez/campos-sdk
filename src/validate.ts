@@ -26,10 +26,10 @@ export function validateLogbook(
   options: ValidateOptions = {},
 ): Result<ValidLogbook> {
   const ctx = new Context();
+  // Read once: a getter could answer differently the second time.
+  const snapshot = options.catalogues;
   const catalogues =
-    options.catalogues === undefined
-      ? new Map()
-      : readCatalogues(ctx, options.catalogues, ["options", "catalogues"]);
+    snapshot === undefined ? new Map() : readCatalogues(ctx, snapshot, ["options", "catalogues"]);
   if (ctx.issues.length > 0) {
     return { ok: false, issues: Object.freeze([...ctx.issues]) };
   }

@@ -70,13 +70,34 @@ export const bool: Reader<boolean> = boolean;
 export const date: Reader<string> = isoDate;
 export const time: Reader<string> = isoTime;
 
-/** A list of whole numbers, such as catalogue codes. */
-export const intListOf =
-  (max: number, maxItems: number, minItems = 0): Reader<readonly number[]> =>
+/**
+ * A list of codes, each a whole number up to `max`. `onCode` sees each valid
+ * code at its own path, such as to check it against a catalogue. A code given
+ * twice is reported: no list of codes has a reason to repeat one, and the CUE
+ * schema forbids it in several.
+ */
+export const codeListOf =
+  (
+    max: number,
+    maxItems: number,
+    onCode: (code: number, path: Path) => void,
+    minItems = 0,
+  ): Reader<readonly number[]> =>
   (ctx, value, path) => {
-    const items = readList(ctx, value, path, minItems, maxItems, (item, itemPath) =>
-      integer(ctx, item, itemPath, 0, max),
-    );
+    const seen = new Set<number>();
+    const items = readList(ctx, value, path, minItems, maxItems, (item, itemPath) => {
+      const code = integer(ctx, item, itemPath, 0, max);
+      if (code === undefined) {
+        return undefined;
+      }
+      if (seen.has(code)) {
+        ctx.report("DUPLICATE_ITEM", itemPath, "This list already holds the same code.");
+        return undefined;
+      }
+      seen.add(code);
+      onCode(code, itemPath);
+      return code;
+    });
     return items === undefined ? undefined : Object.freeze(items);
   };
 

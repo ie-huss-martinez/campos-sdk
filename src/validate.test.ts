@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { copy, fullLogbook, minimalLogbook, sparseLogbook } from "./fixtures/logbook.ts";
+import { copy, fullLogbook, minimalLogbook, sparseLogbook } from "../test/fixtures.ts";
 import type { Issue } from "./issues.ts";
 import { MAX_FIELDS, MAX_ISSUES } from "./validate/context.ts";
 import { validateLogbook } from "./validate.ts";
@@ -154,6 +154,57 @@ describe("validateLogbook", () => {
     });
   });
 
+  it("accepts the same text without the invisible character", () => {
+    const input = full();
+    input.treatments[0]!["notes"] = "FarmName";
+    expect(issues(input)).toEqual([]);
+  });
+
+  it("refuses accessors in lists without calling them", () => {
+    let called = false;
+    const input = full();
+    const justifications: unknown[] = [1];
+    Object.defineProperty(justifications, 1, {
+      enumerable: true,
+      get: () => {
+        called = true;
+        return 2;
+      },
+    });
+    input.treatments[0]!["justifications"] = justifications;
+    expect(issues(input)).toEqual(["INVALID_TYPE at treatments.0.justifications.1"]);
+    expect(called).toBe(false);
+  });
+
+  it("reports a repeated code in a list", () => {
+    const input = full();
+    input.treatments[0]!["justifications"] = [1, 2, 1];
+    input.irrigations[0]!["waterOrigins"] = [1, 1];
+    expect(issues(input)).toEqual([
+      "DUPLICATE_ITEM at treatments.0.justifications.2",
+      "DUPLICATE_ITEM at irrigations.0.waterOrigins.1",
+    ]);
+  });
+
+  it("tags every issue inside an activity with its valid identifier", () => {
+    const input = full();
+    input.treatments[0]!["deleted"] = "yes";
+    input.treatments[0]!["colour"] = "red";
+    input.irrigations.push({ ...input.irrigations[0]!, id: 4 });
+    input.fertilisations[0]!["id"] = -1;
+    input.fertilisations[0]!["deleted"] = "no";
+    const result = validateLogbook(input);
+    expect(
+      result.issues.map((issue) => [issue.code, issue.path.join("."), issue.recordId]),
+    ).toEqual([
+      ["UNKNOWN_FIELD", "treatments.0.colour", 1],
+      ["INVALID_TYPE", "treatments.0.deleted", 1],
+      ["OUT_OF_RANGE", "fertilisations.0.id", undefined],
+      ["INVALID_TYPE", "fertilisations.0.deleted", undefined],
+      ["DUPLICATE_ID", "irrigations.1.id", 4],
+    ]);
+  });
+
   it("refuses accessors without calling them", () => {
     let called = false;
     const holding = { ...minimalLogbook.holding };
@@ -220,6 +271,9 @@ describe("validateLogbook", () => {
       ["a zero-width space", "\u200B"],
       ["a byte order mark", "\uFEFF"],
       ["a tag character", "\u{E0041}"],
+      ["a combining grapheme joiner", "\u034F"],
+      ["a variation selector", "\uFE0F"],
+      ["a Hangul filler", "\u115F"],
     ])("rejects %s", (_name, character) => {
       const input = full();
       input.treatments[0]!["notes"] = `ok${character}ok`;
@@ -549,6 +603,27 @@ describe("catalogue snapshots", () => {
       "RETIRED_CODE at cropDelimitations.0.crop",
       "RETIRED_CODE at treatments.0.targets.pests.0",
     ]);
+  });
+
+  it("reports a catalogue problem at the code's own index", () => {
+    const input = copy(fullLogbook) as unknown as { treatments: Array<Record<string, unknown>> };
+    input.treatments[0]!["justifications"] = ["bad", 2];
+    expect(issues(input, { catalogues: { justification: [{ code: 1 }] } })).toEqual([
+      "INVALID_TYPE at treatments.0.justifications.0",
+      "UNKNOWN_CODE at treatments.0.justifications.1",
+    ]);
+  });
+
+  it("reads the snapshot once", () => {
+    let reads = 0;
+    const options = {
+      get catalogues() {
+        reads += 1;
+        return reads === 1 ? { weed: [{ code: 13 }] } : undefined;
+      },
+    };
+    expect(issues(fullLogbook, options)).toEqual([]);
+    expect(reads).toBe(1);
   });
 
   it("checks only the catalogues supplied", () => {

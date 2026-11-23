@@ -130,7 +130,13 @@ export function readList<T>(
   }
   const out: T[] = [];
   for (let index = 0; index < value.length && !ctx.full; index += 1) {
-    const result = item(value[index], [...path, index], index);
+    // Read through the descriptor, so an accessor is never called.
+    const descriptor = Object.getOwnPropertyDescriptor(value, index);
+    if (descriptor !== undefined && !("value" in descriptor)) {
+      ctx.report("INVALID_TYPE", [...path, index], "Expected a data item, not an accessor.");
+      continue;
+    }
+    const result = item(descriptor?.value, [...path, index], index);
     if (result !== undefined) {
       out.push(result);
     }

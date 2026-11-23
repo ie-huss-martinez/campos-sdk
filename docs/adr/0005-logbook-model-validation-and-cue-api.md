@@ -26,15 +26,16 @@ What the official files say, read in the maintainer's copy of Anexo VI 4.10.0 ([
 - **English names, with the official field in each one's documentation,** and the catalogue for each code.
 - **Codes are numbers, except where the catalogue's codes are text.** Crop delimitation codes are text made of decimal digits, with no leading zero, so no code loses precision.
 - **Text that is part of the record is model data,** such as a product's trade name (RD 1311/2012, Annex III, Part I, B, g), which the CUE document has no field for.
-- **Text holds no control or invisible characters,** line breaks included. A logbook entry is one line, and every renderer can write it without escaping surprises.
+- **Text holds no control, formatting or default-ignorable character** in Unicode's terms, line breaks included. A logbook entry is one line, and every renderer can write it without escaping surprises.
+- **A list of codes holds each code once** (`DUPLICATE_ITEM`). A repeat means nothing, and the CUE schema forbids it in several lists, such as a treatment's justifications.
 - **A deletion is the whole record with `deleted: true`,** because the schema still requires every field of a record that carries `Borrar`.
 
 ### Validation
 
 - **`validateLogbook(input, { catalogues })` returns a result.** On success, `value` is a `ValidLogbook`: a frozen copy that shares nothing with the input. On failure, `issues` lists every problem, up to 1,000.
-- **An issue has a stable `code`, a `path`, the activity's `recordId` where it has a valid one, and an English `message`** for developers. Codes are part of the API.
+- **An issue has a stable `code`, a `path`, the activity's `recordId` where it has a valid one, and an English `message`** for developers. Every issue inside an activity carries its `recordId`, unknown fields and duplicates included. Codes are part of the API.
 - **An issue never contains the input,** not even the name of an unknown field, unless that name looks like an identifier of at most 64 characters (`[A-Za-z_][A-Za-z0-9_]*`); any other name is shown as `"?"`. A field name like `90000001N` or `Juan García` is data, and stays out of logs.
-- **Input is read defensively:** only own data properties are read, accessors are rejected without being called, objects with more than 64 fields and lists past their bounds are rejected before they are read, and text longer than twice its limit isn't measured.
+- **Input is read defensively:** only own data properties are read, accessors on objects and in lists are rejected without being called, the options are read once, objects with more than 64 fields and lists past their bounds are rejected before they are read, and text longer than twice its limit isn't measured.
 - **Rules come from the law and the official documents.** Formats, lengths and precision follow the descriptor of document version 3.11.4, which today is the only one. Spanish NIFs are checked by their check character.
 - **Catalogues are the application's.** It may pass snapshots of the catalogues it has, under the library's names in `CATALOGUE_NAMES`. For every catalogue given, each code must be in it and not retired on or before its record's date: an activity's start, a plan's generation date, a delimitation's start. Catalogues not given aren't checked. Snapshots are untrusted input and are validated first. The library bundles no catalogue and fetches nothing.
 

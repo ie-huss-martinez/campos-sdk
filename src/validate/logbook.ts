@@ -24,17 +24,17 @@ import type {
   TreatmentProduct,
   TreatmentTargets,
 } from "../model.ts";
-import { type Context, readList, readObject } from "./context.ts";
+import { type Context, isRecord, readList, readObject } from "./context.ts";
 import { dateOrder } from "./fields.ts";
 import {
   bool,
   build,
+  codeListOf,
   countGiven,
   date,
   decimalOf,
   digitsOf,
   type Fields,
-  intListOf,
   intOf,
   nif,
   optional,
@@ -71,16 +71,14 @@ const checker =
   (name, code, path) =>
     checkCode(ctx, catalogues, name, code, path, onDate);
 
-/** Checks each code of a list against a catalogue. */
-const checkAll = (
-  check: Check,
-  name: CatalogueName,
-  codes: readonly number[] | undefined,
-  path: Path,
-): void => {
-  codes?.forEach((code, index) => {
-    check(name, code, [...path, index]);
-  });
+/**
+ * An activity's identifier when it is valid, read without reporting
+ * anything, so that every issue in the activity can carry it.
+ */
+const peekId = (value: unknown): number | undefined => {
+  const descriptor = isRecord(value) ? Object.getOwnPropertyDescriptor(value, "id") : undefined;
+  const id = descriptor !== undefined && "value" in descriptor ? descriptor.value : undefined;
+  return typeof id === "number" && Number.isInteger(id) && id >= 0 && id <= MAX_ID ? id : undefined;
 };
 
 /** Reads an object's fields, or returns undefined when it isn't one. */
@@ -246,10 +244,16 @@ const treatmentDgc =
     }
     const phenologicalStage = optional(f, "phenologicalStage", intOf(99));
     check("phenologicalStage", phenologicalStage, [...path, "phenologicalStage"]);
-    const nurseryProducts = optional(f, "nurseryProducts", intListOf(9999, MAX_ITEMS));
-    checkAll(check, "crop", nurseryProducts, [...path, "nurseryProducts"]);
-    const covers = optional(f, "covers", intListOf(99, MAX_ITEMS));
-    checkAll(check, "coverType", covers, [...path, "covers"]);
+    const nurseryProducts = optional(
+      f,
+      "nurseryProducts",
+      codeListOf(9999, MAX_ITEMS, (code, codePath) => check("crop", code, codePath)),
+    );
+    const covers = optional(
+      f,
+      "covers",
+      codeListOf(99, MAX_ITEMS, (code, codePath) => check("coverType", code, codePath)),
+    );
     return build<TreatmentDgc>({
       ...dgcReferenceFields(f),
       area: optional(f, "area", decimalOf(6, 2)),
@@ -345,14 +349,26 @@ const targets =
     if (f === undefined) {
       return undefined;
     }
-    const diseases = optional(f, "diseases", intListOf(999, MAX_ITEMS));
-    checkAll(check, "disease", diseases, [...path, "diseases"]);
-    const pests = optional(f, "pests", intListOf(999, MAX_ITEMS));
-    checkAll(check, "pest", pests, [...path, "pests"]);
-    const weeds = optional(f, "weeds", intListOf(999, MAX_ITEMS));
-    checkAll(check, "weed", weeds, [...path, "weeds"]);
-    const regulators = optional(f, "regulators", intListOf(999, MAX_ITEMS));
-    checkAll(check, "growthRegulator", regulators, [...path, "regulators"]);
+    const diseases = optional(
+      f,
+      "diseases",
+      codeListOf(999, MAX_ITEMS, (code, codePath) => check("disease", code, codePath)),
+    );
+    const pests = optional(
+      f,
+      "pests",
+      codeListOf(999, MAX_ITEMS, (code, codePath) => check("pest", code, codePath)),
+    );
+    const weeds = optional(
+      f,
+      "weeds",
+      codeListOf(999, MAX_ITEMS, (code, codePath) => check("weed", code, codePath)),
+    );
+    const regulators = optional(
+      f,
+      "regulators",
+      codeListOf(999, MAX_ITEMS, (code, codePath) => check("growthRegulator", code, codePath)),
+    );
     const total = [diseases, pests, weeds, regulators].reduce(
       (sum, list) => sum + (list?.length ?? 0),
       0,
@@ -524,8 +540,11 @@ function treatment(
   return ctx.withRecord(id, () => {
     const { start, end } = activityDates(f);
     const check = checker(ctx, catalogues, start);
-    const justifications = required(f, "justifications", intListOf(9, MAX_ITEMS, 1));
-    checkAll(check, "justification", justifications, [...path, "justifications"]);
+    const justifications = required(
+      f,
+      "justifications",
+      codeListOf(9, MAX_ITEMS, (code, codePath) => check("justification", code, codePath), 1),
+    );
     const efficacy = required(f, "efficacy", intOf(9));
     check("efficacy", efficacy, [...path, "efficacy"]);
     const products = optional(f, "products", listOf(product(check), 0, MAX_ITEMS));
@@ -687,8 +706,11 @@ const fertigation =
       check("unit", unit, [...path, name]);
       return unit;
     });
-    const waterOrigins = optional(f, "waterOrigins", intListOf(9, MAX_ITEMS));
-    checkAll(check, "waterOrigin", waterOrigins, [...path, "waterOrigins"]);
+    const waterOrigins = optional(
+      f,
+      "waterOrigins",
+      codeListOf(9, MAX_ITEMS, (code, codePath) => check("waterOrigin", code, codePath)),
+    );
     const energyType = optional(f, "energyType", intOf(99));
     check("energyType", energyType, [...path, "energyType"]);
     return build<Fertigation>({
@@ -733,13 +755,18 @@ function fertilisation(
   return ctx.withRecord(id, () => {
     const { start, end } = activityDates(f);
     const check = checker(ctx, catalogues, start);
-    const goodPractices = optional(f, "goodPractices", intListOf(99, MAX_ITEMS));
-    checkAll(check, "fertiliserGoodPractice", goodPractices, [...path, "goodPractices"]);
-    const irrigationGoodPractices = optional(f, "irrigationGoodPractices", intListOf(9, MAX_ITEMS));
-    checkAll(check, "irrigationGoodPractice", irrigationGoodPractices, [
-      ...path,
+    const goodPractices = optional(
+      f,
+      "goodPractices",
+      codeListOf(99, MAX_ITEMS, (code, codePath) =>
+        check("fertiliserGoodPractice", code, codePath),
+      ),
+    );
+    const irrigationGoodPractices = optional(
+      f,
       "irrigationGoodPractices",
-    ]);
+      codeListOf(9, MAX_ITEMS, (code, codePath) => check("irrigationGoodPractice", code, codePath)),
+    );
     return build<Fertilisation>({
       id,
       deleted,
@@ -829,12 +856,18 @@ function irrigation(
     check("irrigationSystem", system, [...path, "system"]);
     const unit = required(f, "unit", intOf(99));
     check("unit", unit, [...path, "unit"]);
-    const waterOrigins = optional(f, "waterOrigins", intListOf(9, MAX_ITEMS));
-    checkAll(check, "waterOrigin", waterOrigins, [...path, "waterOrigins"]);
+    const waterOrigins = optional(
+      f,
+      "waterOrigins",
+      codeListOf(9, MAX_ITEMS, (code, codePath) => check("waterOrigin", code, codePath)),
+    );
     const energyType = optional(f, "energyType", intOf(99));
     check("energyType", energyType, [...path, "energyType"]);
-    const goodPractices = optional(f, "goodPractices", intListOf(9, MAX_ITEMS));
-    checkAll(check, "irrigationGoodPractice", goodPractices, [...path, "goodPractices"]);
+    const goodPractices = optional(
+      f,
+      "goodPractices",
+      codeListOf(9, MAX_ITEMS, (code, codePath) => check("irrigationGoodPractice", code, codePath)),
+    );
     return build<Irrigation>({
       id,
       deleted,
@@ -870,7 +903,8 @@ export function readLogbook(
   if (f === undefined) {
     return undefined;
   }
-  // Reads one kind of record, reporting each identifier used twice.
+  // Reads one kind of record, reporting each identifier used twice. An
+  // activity's issues, its duplicate included, carry its identifier.
   const records = <T>(
     name: string,
     read: (c: Context, cat: Catalogues, v: unknown, p: Path) => T | undefined,
@@ -881,20 +915,21 @@ export function readLogbook(
       f,
       name,
       listOf(
-        (c, v, p) => {
-          const record = read(c, catalogues, v, p);
-          const id =
-            record === undefined ? undefined : (record as Record<string, unknown>)[idField];
-          if (id !== undefined && seen.has(id)) {
-            c.report(
-              "DUPLICATE_ID",
-              [...p, idField],
-              "Another record of this kind has the same identifier.",
-            );
-          }
-          seen.add(id);
-          return record;
-        },
+        (c, v, p) =>
+          c.withRecord(idField === "id" ? peekId(v) : undefined, () => {
+            const record = read(c, catalogues, v, p);
+            const id =
+              record === undefined ? undefined : (record as Record<string, unknown>)[idField];
+            if (id !== undefined && seen.has(id)) {
+              c.report(
+                "DUPLICATE_ID",
+                [...p, idField],
+                "Another record of this kind has the same identifier.",
+              );
+            }
+            seen.add(id);
+            return record;
+          }),
         0,
         MAX_RECORDS,
       ),

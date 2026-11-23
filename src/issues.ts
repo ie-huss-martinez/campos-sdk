@@ -34,6 +34,8 @@ export const ISSUE_CODES = [
   "AT_LEAST_ONE",
   /** Two records of the same kind have the same identifier. */
   "DUPLICATE_ID",
+  /** A list of codes holds the same code twice. */
+  "DUPLICATE_ITEM",
   /** A code isn't in the catalogue snapshot the application supplied. */
   "UNKNOWN_CODE",
   /** A code was retired from its catalogue on or before the record's date. */

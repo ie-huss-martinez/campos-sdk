@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest a capability, a new target or support for a new version of the official format.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The library builds documents from records and leaves network, storage, signing and user interface to the application. Read [scope and architecture](https://github.com/ie-huss-martinez/campos-sdk/blob/main/docs/adr/0002-scope-and-architecture.md) before suggesting something outside it.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Official source
+      description: If the request follows from the law or from FEGA's documentation, name the document, its version and the section.
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How it could work, ideally with an example of the API you'd like to use.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches or workarounds, and why they fall short.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues, and this hasn't been suggested yet.
+          required: true
+        - label: This request contains no real farm or personal data.
+          required: true

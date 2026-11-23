@@ -1,0 +1,40 @@
+version: 2
+
+# Updates wait 7 days after a release, so a compromised version is usually
+# caught and pulled before it is proposed. That also stays above pnpm's
+# one-day minimumReleaseAge, so a proposed version can always be installed.
+updates:
+  # Keeps the commit SHAs that actions are pinned to current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # Development tools. The package has no runtime dependencies (ADR 0002).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    versioning-strategy: increase
+    commit-message:
+      prefix: build
+    ignore:
+      # Node's types follow the development runtime in .node-version (24).
+      # Raise this bound together with .node-version.
+      - dependency-name: "@types/node"
+        versions: [">=25"]
+    groups:
+      # Minor and patch updates arrive together; each major gets its own pull
+      # request, because it may need code or configuration changes.
+      npm:
+        patterns: ["*"]
+        update-types: [minor, patch]

@@ -1,0 +1,292 @@
+name: Release
+
+# Versions and publishes the package with Changesets (ADR 0003).
+#
+# - With changesets on main, the version job opens or updates the
+#   "chore: version packages" pull request.
+# - Once that pull request is merged, the plan job finds that the version in
+#   package.json isn't on npm yet. The pack job runs the full verify, then packs
+#   the tarball, with read-only permissions. The publish job publishes exactly
+#   that tarball, with npm provenance, then creates the tag and the GitHub
+#   Release, with the tarball, SHA256SUMS and an artifact attestation.
+#
+# While package.json says "private": true, nothing is published.
+#
+# The npm trusted publisher is bound to this repository, this file's name and
+# the npm environment, so keep all three.
+on:
+  push:
+    branches: [main]
+
+permissions: {} # each job declares only what it needs
+
+# Never cancel a release in progress; queue the next push behind it.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  HUSKY: "0"
+
+jobs:
+  version:
+    name: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Restricted to main.
+    environment: release
+    permissions:
+      contents: write # push the version commit to the release branch
+      pull-requests: write # open and update the version pull request
+    outputs:
+      has-changesets: ${{ steps.changesets.outputs.has-changesets }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      # No caches: everything is installed fresh, so a poisoned cache can't
+      # reach a release.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - run: pnpm install --frozen-lockfile
+
+      # A pull request opened with GITHUB_TOKEN doesn't trigger workflows, so
+      # it could never pass the required checks; the App's token does.
+      - name: Check the release App configuration
+        env:
+          CLIENT_ID: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          HAS_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY != '' }}
+        run: |
+          if [ -z "$CLIENT_ID" ] || [ "$HAS_PRIVATE_KEY" != "true" ]; then
+            echo "::error title=Release App not configured::Set the RELEASE_APP_CLIENT_ID variable and the RELEASE_APP_PRIVATE_KEY secret at organisation level, with access for this repository. See CONTRIBUTING.md#setting-up-releases."
+            exit 1
+          fi
+
+      - id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          # Scope the token to what this job needs, whatever the App can do.
+          permission-contents: write
+          permission-pull-requests: write
+
+      # Without publish-script, the action only versions: it opens or updates
+      # the version pull request when there are changesets.
+      - id: changesets
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          pr-title: "chore: version packages"
+          commit-message: "chore: version packages"
+
+  plan:
+    name: plan
+    needs: version
+    if: needs.version.outputs.has-changesets == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      pending: ${{ steps.plan.outputs.pending }}
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: package.json
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      # Pending when the package isn't private and npm doesn't have its
+      # version. Any answer from npm other than "not found" fails the job.
+      - id: plan
+        name: Plan the release
+        run: |
+          name=$(node -p 'require("./package.json").name')
+          version=$(node -p 'require("./package.json").version')
+          private=$(node -p 'Boolean(require("./package.json").private)')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$private" = "true" ]; then
+            echo "::notice::package.json says \"private\": true, so nothing is published."
+            echo "pending=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if published=$(npm view "$name@$version" version 2> "$RUNNER_TEMP/npm-view.log"); then
+            if [ -n "$published" ]; then
+              echo "::notice::$name@$version is already on npm."
+              echo "pending=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          elif ! grep -q E404 "$RUNNER_TEMP/npm-view.log"; then
+            cat "$RUNNER_TEMP/npm-view.log"
+            echo "::error::Couldn't ask npm whether $name@$version is published."
+            exit 1
+          fi
+          echo "::notice::$name@$version will be published."
+          echo "pending=true" >> "$GITHUB_OUTPUT"
+
+  # Verifies and packs exactly what the release publishes, without the
+  # release's permissions.
+  pack:
+    name: pack release
+    needs: plan
+    if: needs.plan.outputs.pending == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      # No caches: everything is installed fresh.
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - run: pnpm install --frozen-lockfile
+
+      # Lint, types, tests with coverage, build, and the package checks.
+      - run: pnpm verify
+
+      - id: pack
+        name: Pack the package
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          out="$RUNNER_TEMP/release-pack"
+          mkdir -p "$out"
+          pnpm pack --pack-destination "$out"
+          tarball=$(cd "$out" && ls -- *.tgz)
+          case "$tarball" in
+            *"-$VERSION.tgz") ;;
+            *) echo "::error::Packed $tarball, but the planned version is $VERSION."; exit 1 ;;
+          esac
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(sha256sum "$out/$tarball" | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-pack
+          path: ${{ runner.temp }}/release-pack
+          if-no-files-found: error
+          retention-days: 1
+
+  # Publishes only the tarball the pack job verified and uploaded, and never
+  # installs or builds, so no dependency's code runs where the OIDC token is.
+  publish:
+    name: publish
+    needs: [plan, pack]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      contents: write # create the tag and the GitHub Release, and upload its files
+      id-token: write # npm trusted publishing and provenance, through OIDC
+      attestations: write # create the artifact attestation
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      TARBALL: ${{ needs.pack.outputs.tarball }}
+      SHA256: ${{ needs.pack.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            package.json
+            CHANGELOG.md
+          sparse-checkout-cone-mode: false
+
+      # No registry-url: trusted publishing needs no token or .npmrc.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-pack
+          path: ${{ runner.temp }}/release-pack
+
+      # The downloaded tarball must be the one the pack job verified.
+      - name: Check the tarball
+        run: |
+          actual=$(sha256sum "$RUNNER_TEMP/release-pack/$TARBALL" | cut -d ' ' -f 1)
+          if [ -z "$SHA256" ] || [ "$actual" != "$SHA256" ]; then
+            echo "::error title=Unverified tarball::$TARBALL has SHA-256 $actual, but the pack job recorded \"$SHA256\", so nothing is published."
+            exit 1
+          fi
+
+      - name: Check the npm version
+        run: |
+          required=11.5.1
+          current=$(npm --version)
+          if [ "$(printf '%s\n' "$required" "$current" | sort -V | head -n 1)" != "$required" ]; then
+            echo "::error::npm $current is too old for trusted publishing; $required or newer is needed."
+            exit 1
+          fi
+
+      # Only for the very first version, before npm can trust a publisher for
+      # the package: a short-lived token in the npm environment, deleted once
+      # the trusted publisher is set (CONTRIBUTING.md#setting-up-releases).
+      - name: Use the bootstrap token, if there is one
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$RUNNER_TEMP/.npmrc"
+            echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/.npmrc" >> "$GITHUB_ENV"
+            echo "::warning title=Bootstrap token::NPM_TOKEN is set in the npm environment. Delete it once the trusted publisher is configured."
+          fi
+
+      # Skipped when a re-run finds the version already on npm, so the steps
+      # after it can finish an interrupted release.
+      - name: Publish to npm
+        run: |
+          name=$(node -p 'require("./package.json").name')
+          if [ -n "$(npm view "$name@$VERSION" version 2> /dev/null)" ]; then
+            echo "::notice::$name@$VERSION is already on npm."
+          else
+            npm publish "$RUNNER_TEMP/release-pack/$TARBALL" --access public --provenance
+          fi
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/release-pack/${{ needs.pack.outputs.tarball }}
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$VERSION"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::notice::The release $tag already exists."
+            exit 0
+          fi
+          cd "$RUNNER_TEMP/release-pack"
+          sha256sum "$TARBALL" > SHA256SUMS
+          awk -v heading="## $VERSION" '
+            $0 == heading { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' "$GITHUB_WORKSPACE/CHANGELOG.md" > notes.md
+          gh release create "$tag" "$TARBALL" SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$tag" \
+            --notes-file notes.md

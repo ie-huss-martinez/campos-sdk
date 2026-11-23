@@ -17,10 +17,10 @@ A Spanish agricultural holding must keep a logbook, the *cuaderno de explotació
 ### The format
 
 - **There is one contract and many endpoints.** FEGA publishes the *Documentación Técnica Agrícola SIEX*. Its Anexo VI, "Interfaz Único Común", defines the web services (IUWS) and the CUE document; its Anexo V defines the variables. Each autonomous community runs the services on its own host, and software sends a holding's CUE to the community where the holding is registered.
-- **The document has a schema.** Anexo VI is reported to embed a JSON Schema (draft-07) for the CUE document (UNVERIFIED).
-- **The version this library targets first is 3.11.4,** of November 2025, the latest we know of on the date of this record.
-- **It changes.** The technical document must be updated at least once a year (Resolución of 25 May 2023 of the Secretaría General de Agricultura y Alimentación). A larger change, SIEX 5.9.0 with a new set of documents, is reported for about September 2027 (UNVERIFIED).
-- **Communities move at their own pace.** Nothing says that all of them accept a new version on the same day.
+- **The document has a schema.** Anexo VI embeds a JSON Schema (draft-07) for the CUE document, and a descriptor spreadsheet, `BdcSix-DS-DiseñoCUE.xlsx`, that defines each field.
+- **Two things are versioned, and they move apart.** Anexo VI is at 4.10.0, of 27 October 2026. Its change log says that 4.10.0 changed only the transport: a new `IUWS-Consumer` header and more accepted certificate types. The last version that changed the CUE document was 3.11.4, of 19 November 2025. The schema file carries no version of its own.
+- **It changes.** The technical document must be updated at least once a year (Resolución of 25 May 2023 of the Secretaría General de Agricultura y Alimentación). The three versions before 4.10.0, in under two months of 2025, each changed which fields are compulsory. A larger change, SIEX 5.9.0 with a new set of documents, is reported for about September 2027 (UNVERIFIED; the annex itself only says the new header becomes compulsory "a partir de la versión 5.9 del interfaz").
+- **Communities move at their own pace.** Nothing says that all of them accept a new version on the same day. The interface has a `version` method that reports which one a community's service is working with.
 
 ### What forces a design
 
@@ -31,7 +31,9 @@ A Spanish agricultural holding must keep a logbook, the *cuaderno de explotació
 
 ### The state of our sources
 
-FEGA's site can't be reached from where this library is first developed. Until the official Anexo V and Anexo VI are in hand, what this record says about the content of the CUE document comes from the law, from the communities' official pages, and from secondary reports. Statements about the document's content are marked UNVERIFIED below. The architecture doesn't depend on them.
+What this record says about the interface was checked against the maintainer's download, of 23 November 2026, of FEGA's Anexo VI 4.10.0 and the schema embedded in it. Legal statements cite the consolidated texts in the BOE. What could not be checked there is marked UNVERIFIED.
+
+FEGA's site can't be reached from where this library is developed, so nothing in the library or its tests may depend on fetching from it.
 
 ## Decision
 
@@ -51,7 +53,7 @@ Everything else belongs to the application:
 | Certificates and message signing | The private key belongs in the application's secret store, on a server. |
 | Storage and synchronisation | Each application has its own. |
 | Allocating the activity identifiers | See [Activity identifiers](#activity-identifiers). |
-| Catalogue data | SIEX catalogues are many, large, and updated one by one with no common version. The model carries codes; the application owns its catalogue snapshot. |
+| Catalogue data | SIEX publishes more than 140 catalogues, and they change between releases of this library. The model carries codes; the application owns its catalogue snapshot. |
 | Reading a holding's export from a community's register | It may come later, with its own record. |
 | A user interface | The library returns data and documents. |
 | Legal advice | The library applies rules it can cite. It doesn't decide whether a holding is exempt or a deadline is met. |
@@ -105,19 +107,24 @@ Dependencies between the layers point one way: renderers import the model, valid
 
 ### Schema versions
 
-- **A CUE renderer targets exactly one version of Anexo VI,** and its module is named for it. The first is 3.11.4.
-- **The application names the version it wants.** There is no "latest" default: a library upgrade must never change what an application sends to a community that hasn't moved yet.
+- **The library versions the CUE document, not the annex.** A document version is named after the version of Anexo VI that last changed the descriptor or the schema, which the annex's change log states. Today that is 3.11.4, although the annex is at 4.10.0. A release of the annex that changes only the transport, as 4.10.0 did, adds nothing here: transport is out of scope.
+- **A document version is pinned to one schema file,** identified by its SHA-256, because the file has no version inside it. The record of each version says which annex it was taken from and when.
+- **A CUE renderer targets exactly one document version,** and its module is named for it. The first is 3.11.4.
+- **The application names the version it wants.** There is no "latest" default: a library upgrade must never change what an application sends to a community that hasn't moved yet. A community's `version` method tells the application which version of the interface it runs, and the document version follows from that.
 - **A rendered CUE document comes with the version it was built for,** so the application can store the two together.
-- **A new version of the annex is a new module beside the old one.** Adding it is not a breaking change. Removing an old one is, and happens only after the administration stops accepting it.
+- **A new document version is a new module beside the old one.** Adding it is not a breaking change. Removing an old one is, and happens only after the administration stops accepting it.
 - **The official JSON Schema is the test oracle, not a runtime dependency.** The library's tests validate every document its fixtures produce against FEGA's schema for that version. At run time, the library's own rules do the work.
-- **A new version starts from a field-by-field comparison** of the new Anexo V and Anexo VI with the old. If the law's logbook grows, the model grows with it, additively where it can.
+- **The schema is necessary, not sufficient.** It doesn't forbid unknown properties, so a misspelt optional field passes it. It also has defects, such as a malformed `$id`. The tests therefore also check that every property a renderer writes is one the schema declares, and the descriptor and Anexo V decide what is compulsory where the schema is silent.
+- **A new version starts from a field-by-field comparison** of the new descriptor, schema and Anexo V with the old. If the law's logbook grows, the model grows with it, additively where it can.
 
 ### Activity identifiers
 
-Each activity in a CUE document carries an integer chosen by the sender, and a later correction or deletion refers to it (UNVERIFIED: the type, the range and the exact rules are in Anexo VI). The library takes these integers from the application and checks them; it does not create them.
+Each activity in a CUE document carries an integer "generado por la herramienta que envía los datos" (Anexo VI, 3.1.5), such as `IdAjenaTratamFito`. The administration uses it to report which activity failed, treats a document that repeats a known identifier as an edit of that activity, and deletes the activity when the identifier comes with `Borrar`. A crop delimitation (DGC) declared by the sender carries one too, `CodigoDGCAjena`. The schema types them as integers with no bounds; their range, and whether they must be unique per holding or more widely, are UNVERIFIED.
 
-- **They must be stable and never reused.** The same activity must carry the same integer every time it is sent, and no other activity of that holding may ever take it, even after a deletion.
-- **So one authority has to allocate them: the application's server.** Two devices working offline can't each pick the next free integer without colliding, and a collision makes one farmer's record overwrite another at the administration.
+The library takes these integers from the application and checks them; it does not create them.
+
+- **They must be stable and never reused.** The same activity must carry the same integer every time it is sent, and no other activity may ever take it, even after a deletion.
+- **So one authority has to allocate them: the application's server.** Two devices working offline can't each pick the next free integer without colliding, and the administration reads a repeated identifier as an edit: one record would overwrite the other.
 - **The library can't derive them either.** A hash of the application's own identifier into the integer's range can collide, with the same result, and a counter needs storage the library doesn't have.
 
 ### Sources and provenance
@@ -125,7 +132,7 @@ Each activity in a CUE document carries an integer chosen by the sender, and a l
 - **The CUE format comes from FEGA's official files only:** Anexo VI for the interface and its schema, Anexo V for the variables. Legal fields come from the consolidated texts in the BOE.
 - **Nothing is copied from another project,** whether code, notes or a copy of the schema. Copies of the schema circulate in repositories under licences, such as AGPL-3.0, that this Apache-2.0 library can't take from.
 - **Unconfirmed is labelled.** A field, code or limit that hasn't been checked against an official file is marked UNVERIFIED in the code and the documentation, with where it came from, until it is.
-- **Official files stay out of the repository** until a record states their reuse terms under Ley 37/2007 on the reuse of public-sector information. Until then, tests that need them read a local copy.
+- **Official files stay out of the repository** until a record states their reuse terms: FEGA's legal notice and Ley 37/2007 on the reuse of public-sector information. A file committed after that is byte-identical to FEGA's, with its source, date and SHA-256 beside it. FEGA's logos and marks are never used.
 - **Fixtures are fictional:** invented holdings and people, with tax identifiers that pass the checksum and belong to nobody.
 
 ### Runtime
@@ -136,7 +143,7 @@ Each activity in a CUE document carries an integer chosen by the sender, and a l
 ## Alternatives considered
 
 - **The CUE schema as the public model,** with types generated from it: the shortest path to the first document. Every yearly version would then break every caller, the printed logbook's fields that the interface lacks would have nowhere to live, and the schema's formats and defects would become the library's API.
-- **Validating at run time with the official schema and a JSON Schema validator:** the rules would be FEGA's by construction. It needs a runtime dependency that compiles schemas to code, which a strict content security policy forbids in a browser; it reports problems as paths in the output, not in the caller's records; and it would ship a file whose reuse terms aren't settled. The schema is kept as the oracle in tests, where none of that matters.
+- **Validating at run time with the official schema and a JSON Schema validator:** the rules would be FEGA's by construction. It needs a runtime dependency that compiles schemas to code, which a strict content security policy forbids in a browser; it reports problems as paths in the output, not in the caller's records; and the schema lets unknown properties through. The schema is kept as the oracle in tests, where the first two don't matter and the third is covered.
 - **A validation library as a runtime dependency:** less code to write. The issues, codes and paths have to be ours anyway, and a package installed on every server that builds a legal record should bring as little with it as possible. If hand-written validation proves too costly, a record can revisit this.
 - **Throwing on invalid input:** familiar, and it reports one problem per attempt. A person fixing an import needs the whole list.
 - **Including the IUWS client:** an application would get submission in one package. The library would then need private keys, community endpoints and network access, could no longer run in a browser safely, and would carry the parts of the interface that are least documented and differ most between communities.
@@ -151,5 +158,5 @@ Each activity in a CUE document carries an integer chosen by the sender, and a l
 - **Validation is hand-written,** which is more code to maintain and test. It is also the part of the library with the most value, and it stays free of dependencies.
 - **The application carries real work:** allocating identifiers on a server, keeping catalogues, transport, signing, storage, and names for the printed logbook. The documentation must say so plainly, with the reason for the identifiers.
 - **The library can't promise acceptance.** A document that passes the official schema can still be refused by a community for reasons outside it, such as a code retired from a catalogue or a parcel the register doesn't know. The README keeps its disclaimer.
-- **Until the official annexes are read, the CUE renderer can't be finished.** Work that doesn't depend on them comes first.
+- **Every yearly release of the annex has to be read,** even when, like 4.10.0, it turns out to change nothing the library produces. The change log is where that is decided, and the decision is written down.
 - **Follow-up records:** the reuse terms of FEGA's files; the printable logbook's format; any runtime dependency; and the public API of the model and of validation, when they are written.

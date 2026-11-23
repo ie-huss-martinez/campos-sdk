@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+temp/
+# An agent's notes on the task in hand. Never committed.
+.local/

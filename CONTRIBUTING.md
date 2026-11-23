@@ -104,13 +104,15 @@ Nobody publishes by hand ([ADR 0003](docs/adr/0003-tooling-build-and-release.md)
 - It attests that tarball and creates the GitHub Release on that run's commit, replacing a draft an interrupted run left behind.
 - Until the release is complete, every later Release run fails with an error that says so. A version on npm whose tarball this repository didn't build is never attested or released by the workflow.
 
-**After the 7 days,** the run's tarball is gone, and the workflow can't finish the release. The maintainer finishes it by hand, without an attestation, because nothing can attest a build after the fact:
+**After the 7 days,** the run's tarball is gone. What to do depends on whether npm has the version, which `npm view @hussmartinez/campos-sdk@<version> version` answers:
 
-1. Read the version's npm provenance, on its npmjs.com page or with `npm view @hussmartinez/campos-sdk@<version> dist.attestations`. It must name this repository, `release.yml`, and a commit. If it doesn't, stop: this repository didn't publish that version, so treat it as a security incident.
-2. Download the tarball with `npm pack @hussmartinez/campos-sdk@<version>`, which checks it against the registry's integrity, and write its `SHA256SUMS`.
-3. Create the release on that commit: `gh release create v<version> <tarball> SHA256SUMS --target <commit> --title v<version>`, with the version's `CHANGELOG.md` entry as notes, followed by a line saying the release has no artifact attestation and that npm's provenance is the record of its build.
+- **npm doesn't have it:** nothing was published, so nothing needs recovering. Re-run all the jobs of that Release run, or push to `main` again: the plan job asks npm again, and the pack job builds and verifies a new tarball, which the publish job then publishes.
+- **npm has it:** the workflow can't finish the release, because it can't rebuild the tarball npm holds. The maintainer finishes it by hand, without an attestation, because nothing can attest a build after the fact:
+  1. Open the version's page on npmjs.com and read its **Provenance** section. It must name this repository, the `release.yml` workflow and a commit. If it doesn't, stop: this repository didn't publish that version, so treat it as a security incident. (`npm view … dist.attestations` gives only the attestation's URL, not these details.)
+  2. Download the tarball with `npm pack @hussmartinez/campos-sdk@<version>`, which checks it against the registry's integrity, and write its `SHA256SUMS`.
+  3. Create the release on that commit: `gh release create v<version> <tarball> SHA256SUMS --target <commit> --title v<version>`, with the version's `CHANGELOG.md` entry as notes, followed by a line saying the release has no artifact attestation and that npm's provenance is the record of its build.
 
-The next Release run then finds the release complete and carries on.
+Either way, the next Release run finds the version complete and carries on.
 
 ## Setting up releases
 

@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!pnpm-lock.yaml", "!.changeset/*.md"]
+    "includes": ["**", "!pnpm-lock.yaml", "!.changeset/*.md", "!vendor/fega"]
   },
   "formatter": {
     "enabled": true,
@@ -56,6 +56,18 @@
     }
   },
   "overrides": [
+    {
+      // In a test, a wrong assumption behind `!` fails the test, which is
+      // what the assertion is for.
+      "includes": ["**/*.test.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    },
     {
       // The library's own code: no platform imports, no clock and no
       // randomness (ADR 0002). tsconfig.json already rejects platform globals.

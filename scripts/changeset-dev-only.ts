@@ -43,6 +43,13 @@ function main(base: string | undefined): number {
     process.stderr.write("Usage: node scripts/changeset-dev-only.ts <base-ref>\n");
     return 2;
   }
+  // A package.json the base doesn't have is new, never a dev-only change.
+  try {
+    execFileSync("git", ["cat-file", "-e", `${base}:package.json`], { stdio: "ignore" });
+  } catch {
+    process.stdout.write(`package.json is new since ${base}, so it is left as it is.\n`);
+    return 0;
+  }
   const previous = execFileSync("git", ["show", `${base}:package.json`], { encoding: "utf8" });
   const current = readFileSync("package.json", "utf8");
   if (

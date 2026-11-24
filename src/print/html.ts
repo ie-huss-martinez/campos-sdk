@@ -57,7 +57,10 @@ export const STYLE: string = [
 /** The SHA-256 of {@link STYLE}, base64. A test checks that it matches. */
 export const STYLE_HASH = "sha256-EDIKwQ5iElZvFkSAw11uonVmgW853tKC/QRnnpKzgcs=";
 
-/** No script, no request, no form: only the stylesheet above. */
+/**
+ * No script, no resource and no form submission: only the stylesheet above. It
+ * doesn't stop navigation; escaping is what keeps input from becoming markup.
+ */
 const CSP = `default-src 'none'; style-src '${STYLE_HASH}'; base-uri 'none'; form-action 'none'`;
 
 /** Escapes text for HTML content and attribute values. */
@@ -122,7 +125,10 @@ class Labeller {
   /** A crop delimitation, described by the application or, if declared here, by its SIGPAC reference. */
   dgc(reference: DgcReference): string {
     if ("dgc" in reference) {
-      return this.dgcLabels.dgc.get(reference.dgc) ?? `DGC ${reference.dgc}`;
+      const base = this.dgcLabels.dgc.get(reference.dgc) ?? `DGC ${reference.dgc}`;
+      return reference.cropRecord === undefined
+        ? base
+        : `${base} (cultivo del registro ${reference.cropRecord})`;
     }
     const label = this.dgcLabels.declaredDgc.get(reference.declaredDgc);
     if (label !== undefined) {

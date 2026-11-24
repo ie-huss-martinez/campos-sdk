@@ -34,7 +34,7 @@ What the library knows:
 ### Safety
 
 - **Every value is escaped,** labels included, for both text and attributes. No value from the input becomes markup, an attribute name or a URL.
-- **The document has no script, and loads nothing.** Its content security policy is `default-src 'none'`, with `base-uri` and `form-action` also `'none'`. It allows only its own stylesheet, by the SHA-256 of its text, which a test recomputes. A browser that opens it can't run or fetch anything, even if escaping failed.
+- **The document has no script, and loads nothing.** Its content security policy is `default-src 'none'`, with `base-uri` and `form-action` also `'none'`. It allows only its own stylesheet, by the SHA-256 of its text, which a test recomputes. The policy is a second line of defence, not the first: it stops scripts, and the loading of any resource, but not navigation, so a link that escaped escaping could still be followed. Escaping is what keeps input from becoming markup.
 - **Labels are untrusted input,** validated like the model: bounded, with no control or invisible characters.
 - **The same logbook and labels give the same bytes.**
 

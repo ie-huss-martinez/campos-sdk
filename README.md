@@ -24,7 +24,12 @@ application.
 ## Usage
 
 ```ts
-import { cueVersionForInterface, renderCue, validateLogbook } from "@hussmartinez/campos-sdk";
+import {
+  cueVersionForInterface,
+  renderCue,
+  renderLogbookHtml,
+  validateLogbook,
+} from "@hussmartinez/campos-sdk";
 
 // Records from your application: untrusted until validated.
 const result = validateLogbook(records, { catalogues: mySiexSnapshot });

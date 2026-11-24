@@ -94,7 +94,8 @@ describe("renderLogbookHtml", () => {
   it("describes declared crop delimitations by their SIGPAC reference, and others by their code", () => {
     const output = html(fullLogbook, { catalogues });
     expect(output).toContain("SIGPAC 47:186:0:0:5:120:3: Trigo blando (1)");
-    expect(output).toContain("DGC 1234567890123456");
+    expect(output).toContain("DGC 1234567890123456 (cultivo del registro 77)");
+    expect(output).toContain("<td>DGC 1234567890123456, 12,5 ha</td>");
     expect(html(fullLogbook, { dgcs })).toContain("Pol. 5, par. 120, rec. 3: trigo blando");
     expect(
       html(fullLogbook, { dgcs: [{ declaredDgc: "9007199254740993", label: "Recinto propio" }] }),

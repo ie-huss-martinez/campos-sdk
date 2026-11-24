@@ -25,7 +25,7 @@
 - **Pull requests:** work on a branch and open one focused pull request per change. Never push to `main`.
 - **One pull request at a time:** after opening one, wait until its checks are green on the current head and every review thread is resolved, then stop and report its link, its head commit and a short summary. Start the next change only once it is merged, from an up-to-date `main`.
 - **Never merge your own pull request.** A separate reviewer reads the full diff and squash-merges it. Author and reviewer are always different sessions.
-- **Titles:** Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `build:`, `ci:`, `chore:`), a lowercase subject, and 65 characters or fewer, for pull request titles and for every commit on a branch. The pull request title becomes the commit on `main`.
+- **Titles:** Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `perf:`, `test:`, `build:`, `ci:`, `chore:`, `revert:`), a lowercase subject, and 65 characters or fewer, for pull request titles and for every commit on a branch. The pull request title becomes the commit on `main`.
 - **Changesets:** a pull request that changes what the package publishes adds one with `pnpm changeset`, written for users. See [CONTRIBUTING.md](CONTRIBUTING.md#changesets).
 - **Descriptions:** what changed, why, and how it was tested, including what was not run.
 - **Signing:** commits are signed. Don't disable signing.

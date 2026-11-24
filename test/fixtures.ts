@@ -1,0 +1,295 @@
+/**
+ * A fictional holding's logbook, for tests. Every identifier is invented: the
+ * NIFs pass their checksums but use number ranges that aren't issued, and the
+ * REA and SIEX codes, ROPO and ROMA numbers and crop delimitation codes
+ * belong to nobody. Catalogue codes are small numbers chosen for the tests,
+ * not real codes.
+ */
+
+/** A complete logbook, using every field the model has. */
+export const fullLogbook = {
+  holding: {
+    reaCode: "ES000000000001",
+    siexCode: "ES000000000002",
+    holderNif: "90000001N",
+    managingUnitNif: "B90000001",
+    payingAgency: "07",
+    notebookId: 12345678,
+  },
+  cropDelimitations: [
+    {
+      code: "9007199254740993",
+      deleted: false,
+      cadastralReference: "12345A123456780000AB",
+      sigpac: {
+        province: "47",
+        municipality: "186",
+        aggregate: 0,
+        zone: 0,
+        polygon: 5,
+        parcel: 120,
+        enclosure: 3,
+      },
+      order: 1,
+      area: 2.75,
+      areaFrom: "2026-10-01",
+      areaTo: "2027-09-30",
+      from: "2026-10-01",
+      to: "2027-09-30",
+      crop: 1,
+      variety: 101,
+      irrigated: true,
+      croppingSystem: 2,
+    },
+  ],
+  treatments: [
+    {
+      id: 1,
+      deleted: false,
+      start: "2027-03-04",
+      end: "2027-03-04",
+      time: "08:30:00",
+      dryingDate: "2027-03-20",
+      coverActivity: "maintenance",
+      dgcs: [
+        {
+          dgc: "1234567890123456",
+          cropRecord: "77",
+          area: 12.5,
+          phenologicalStage: 3,
+          nurseryProducts: [10],
+          covers: [2],
+        },
+        { declaredDgc: "9007199254740993", area: 2.75 },
+      ],
+      targets: { diseases: [11], pests: [12], weeds: [13], regulators: [14] },
+      justifications: [1],
+      otherMeasure: {
+        type: 4,
+        quantity: 10,
+        unit: 5,
+        mdfRegistration: "MDF-0001",
+        goodPractice: 6,
+      },
+      products: [
+        {
+          type: 1,
+          tradeName: "Fungicida Ejemplo 25 SC",
+          registrationNumber: "ES-00001",
+          dose: 0.75,
+          unit: 7,
+        },
+        {
+          type: 3,
+          tradeName: "Producto de autorización excepcional",
+          activeSubstance: 123,
+          quantity: 1.5,
+          unit: 8,
+        },
+      ],
+      applicators: [
+        {
+          ropo: "0000000000001S",
+          equipment: {
+            roma: "ROMA-000001",
+            own: true,
+            power: 110.5,
+            powerUnit: 9,
+            machineryTypeUne: "UNE-01",
+            energyType: 1,
+            repetitions: 2,
+            duration: 1.25,
+            manual: false,
+          },
+        },
+        { ropo: "0000000000002S", equipment: { unregisteredId: "Mochila 1", manual: true } },
+        { ropo: "0000000000003S", equipment: { reganip: "REG-000001", manual: false } },
+      ],
+      adviser: {
+        ropo: "0000000000004A",
+        date: "2027-03-01",
+        validated: true,
+        confirmed: true,
+        contract: true,
+        notes: "Tratamiento recomendado por riesgo de mildiu.",
+      },
+      efficacy: 2,
+      notes: "Sin incidencias.",
+    },
+  ],
+  fertilisations: [
+    {
+      id: 2,
+      deleted: false,
+      start: "2027-02-10",
+      end: "2027-02-11",
+      sustainableInputManagement: true,
+      goodPractices: [3],
+      material: {
+        type: 20,
+        detail: 2001,
+        supplierName: "Granja Ficticia",
+        rega: "ES000000000099",
+        manureTreatment: 1,
+        macronutrients: [{ type: 1, percent: 12.5 }],
+        heavyMetals: [{ type: 2, percent: 0.001 }],
+        micronutrients: [{ type: 3 }],
+        density: 1.1,
+        densityUnit: 4,
+      },
+      application: {
+        productName: "Estiércol de ovino",
+        sewageSludge: false,
+        type: 1,
+        method: 2,
+        dose: 20000,
+        unit: 3,
+        serviceCompany: "REGFER-0001",
+      },
+      equipment: { roma: "ROMA-000002", own: false },
+      irrigationGoodPractices: [1],
+      fertigation: {
+        irrigationSystem: 2,
+        quantity: 300,
+        unit: 4,
+        waterOrigins: [1],
+        meter: "CONT-0001",
+        nitrogenDose: 12.3,
+        nitrogenUnit: 5,
+        phosphorusDose: 4.5,
+        phosphorusUnit: 5,
+        energyType: 2,
+      },
+      dgcs: [{ dgc: "1234567890123456", area: 12.5 }],
+    },
+  ],
+  fertilisationPlans: [
+    {
+      id: 3,
+      nitrogenNeed: 180,
+      phosphorusNeed: 60.5,
+      potassiumNeed: 90,
+      yieldTarget: 9000,
+      previousCrop: 2,
+      toolUsed: true,
+      generatedOn: "2026-09-15",
+      dgcs: [{ dgc: "1234567890123456", cropRecord: "77" }, { declaredDgc: "9007199254740993" }],
+    },
+  ],
+  irrigations: [
+    {
+      id: 4,
+      start: "2027-06-01",
+      end: "2027-06-02",
+      system: 2,
+      quantity: 450.25,
+      unit: 6,
+      waterOrigins: [1, 2],
+      energyType: 3,
+      meter: "CONT-0002",
+      goodPractices: [2],
+      dgcs: [{ declaredDgc: "9007199254740993" }],
+    },
+  ],
+} as const;
+
+/** The smallest valid logbook: a holding and nothing else. */
+export const minimalLogbook = {
+  holding: {
+    reaCode: "ES000000000003",
+    holderNif: "X9000001D",
+    managingUnitNif: "X9000001D",
+    payingAgency: "13",
+  },
+} as const;
+
+/** A logbook whose records give only what the model and CUE 3.11.4 require. */
+export const sparseLogbook = {
+  holding: {
+    reaCode: "ES000000000004",
+    holderNif: "90000002J",
+    managingUnitNif: "Q9000002G",
+    payingAgency: "09",
+  },
+  cropDelimitations: [
+    {
+      code: "1",
+      sigpac: {
+        province: "08",
+        municipality: "019",
+        aggregate: 0,
+        zone: 0,
+        polygon: 1,
+        parcel: 1,
+        enclosure: 1,
+      },
+      from: "2026-11-01",
+      crop: 3,
+      variety: 300,
+      irrigated: false,
+      croppingSystem: 1,
+    },
+  ],
+  treatments: [
+    {
+      id: 10,
+      start: "2027-04-01",
+      end: "2027-04-02",
+      dgcs: [{ dgc: "5" }],
+      targets: { weeds: [20] },
+      justifications: [2],
+      products: [{ type: 1, tradeName: "Herbicida Ejemplo", dose: 1, unit: 7 }],
+      applicators: [{ ropo: "0000000000005S", equipment: { roma: "ROMA-000003", manual: false } }],
+      efficacy: 1,
+    },
+    {
+      id: 11,
+      start: "2027-04-03",
+      end: "2027-04-03",
+      dgcs: [{ declaredDgc: "1" }],
+      targets: { diseases: [21] },
+      justifications: [3],
+      otherMeasure: { type: 5 },
+      applicators: [
+        { ropo: "0000000000005S", equipment: { unregisteredId: "Trampas", manual: true } },
+      ],
+      efficacy: 1,
+    },
+  ],
+  fertilisations: [
+    {
+      id: 12,
+      start: "2027-02-01",
+      end: "2027-02-01",
+      goodPractices: [7],
+      dgcs: [{ dgc: "5" }],
+    },
+  ],
+  fertilisationPlans: [
+    {
+      id: 13,
+      nitrogenNeed: 0,
+      phosphorusNeed: 0,
+      potassiumNeed: 0,
+      yieldTarget: 0,
+      previousCrop: 3,
+      toolUsed: false,
+      generatedOn: "2026-12-01",
+      dgcs: [{ dgc: "5" }],
+    },
+  ],
+  irrigations: [
+    {
+      id: 14,
+      start: "2027-07-01",
+      end: "2027-07-01",
+      system: 1,
+      quantity: 0,
+      unit: 6,
+      dgcs: [{ dgc: "5" }],
+    },
+  ],
+} as const;
+
+/** A deep, mutable copy of a fixture, to change in a test. */
+export const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;

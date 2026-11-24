@@ -21,6 +21,40 @@ It is pure and dependency-light: no network calls, no storage and no
 framework. Sending the document to an administration is left to the
 application.
 
+## Usage
+
+```ts
+import { cueVersionForInterface, renderCue, validateLogbook } from "@hussmartinez/campos-sdk";
+
+// Records from your application: untrusted until validated.
+const result = validateLogbook(records, { catalogues: mySiexSnapshot });
+if (!result.ok) {
+  // Each issue has a stable code and a path, such as
+  // { code: "INVALID_CHECKSUM", path: ["holding", "holderNif"] }, and never the value.
+  return showIssues(result.issues);
+}
+
+// Name the document version the community accepts; there is no default.
+const version = cueVersionForInterface("4.10.0"); // the community's interface version
+if (version.ok) {
+  const cue = renderCue(result.value, { version: version.value });
+  if (cue.ok) {
+    send(cue.value.json); // the body of an IUWS `crear` call, version "3.11.4"
+  }
+}
+```
+
+The model covers the holding, crop delimitations it declares, plant-protection
+treatments, fertiliser applications, fertilisation plans and irrigations. Its
+fields are documented in [`src/model.ts`](src/model.ts), each with the official
+CUE field it maps to. Catalogue snapshots are optional; the library checks the
+codes of every catalogue you pass and bundles none.
+
+Your server must allocate each record's `id`, and each declared crop
+delimitation's `code`: stable, never reused. The administration reads a repeated
+identifier as an edit of the earlier record, so two devices picking numbers on
+their own would overwrite each other's records.
+
 ## Why
 
 From 1 January 2027, plant-protection records in Spain must be electronic and

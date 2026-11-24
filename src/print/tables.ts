@@ -93,6 +93,12 @@ export class Labeller {
     return label === undefined ? String(code) : `${label} (${code})`;
   }
 
+  /** `label (code)`, or the code after a word that names it, for a code that is text. */
+  named(catalogue: CatalogueName, code: string, word: string): string {
+    const label = this.catalogues.get(catalogue)?.get(codeKey(code))?.label;
+    return label === undefined ? `${word} ${code}` : `${label} (${code})`;
+  }
+
   /** Like {@link Labeller.label}, for an optional code. */
   code(catalogue: CatalogueName, code: number | string | undefined): string | undefined {
     return code === undefined ? undefined : this.label(catalogue, code);
@@ -161,7 +167,9 @@ function holdingRows(h: Logbook["holding"], l: Labeller): ReadonlyArray<readonly
     ["Titular", h.holderName],
     ["NIF del titular", h.holderNif],
     ["NIF de la unidad gestora", h.managingUnitNif],
-    ["Organismo pagador", l.code("payingAgency", h.payingAgency)],
+    // Identifiers are written with a word that names them, so a spreadsheet
+    // never reads one as a number (ADR 0007).
+    ["Organismo pagador", l.named("payingAgency", h.payingAgency, "Código")],
   ];
   return rows.filter((row): row is readonly [string, string] => row[1] !== undefined);
 }
@@ -182,7 +190,7 @@ function delimitationsTable(records: readonly CropDelimitation[], l: Labeller): 
     rows: records
       .filter((d) => d.deleted !== true)
       .map((d) => [
-        lines([d.code]),
+        lines([`DGC propia ${d.code}`]),
         lines([sigpac(d)]),
         lines([d.cadastralReference]),
         lines([d.area === undefined ? undefined : number(d.area)]),
@@ -325,7 +333,10 @@ function irrigationRow(r: Irrigation, l: Labeller): Cell[] {
     lines([l.code("irrigationSystem", r.system)]),
     lines([`${number(r.quantity)} ${l.code("unit", r.unit)}`]),
     lines(l.codes("waterOrigin", r.waterOrigins)),
-    lines([r.meter, l.code("energyType", r.energyType)]),
+    lines([
+      r.meter === undefined ? undefined : `Contador ${r.meter}`,
+      l.code("energyType", r.energyType),
+    ]),
     lines(l.codes("irrigationGoodPractice", r.goodPractices)),
   ];
 }

@@ -88,7 +88,7 @@ describe("renderLogbookHtml", () => {
     expect(output).toContain("Mildiu (11)");
     expect(output).toContain("Castilla y León (07)");
     expect(output).toContain("<td>Mildiu (11)<br>12<br>13<br>14</td>");
-    expect(html(fullLogbook)).toContain("Organismo pagador</th><td>07</td>");
+    expect(html(fullLogbook)).toContain("Organismo pagador</th><td>Código 07</td>");
   });
 
   it("describes declared crop delimitations by their SIGPAC reference, and others by their code", () => {
@@ -131,7 +131,9 @@ describe("renderLogbookHtml", () => {
 
   it("prints the sparse fixture, with what its records leave out", () => {
     const output = html(sparseLogbook);
-    expect(output).toContain("<td>1</td><td>SIGPAC 08:019:0:0:1:1:1</td><td></td><td></td>");
+    expect(output).toContain(
+      "<td>DGC propia 1</td><td>SIGPAC 08:019:0:0:1:1:1</td><td></td><td></td>",
+    );
     expect(output).toContain("<td>Secano<br>1</td><td>Desde 01/11/2026</td>");
     expect(output).toContain("Otra medida: 5");
     expect(output).toContain("<td>Toda la DGC</td>");

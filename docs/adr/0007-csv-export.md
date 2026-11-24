@@ -11,6 +11,7 @@ What shapes the format:
 
 - **The spreadsheets these files open in are mostly set up for Spain.** They use a decimal comma, and so a semicolon to separate fields. Several of them read a CSV file as a legacy encoding unless it starts with a byte order mark.
 - **A field that starts with `=`, `+`, `-` or `@` is a formula** to most spreadsheets, and a formula can fetch URLs or run commands (CSV injection, CWE-1236). Some spreadsheets also accept the full-width forms of those characters.
+- **A spreadsheet reads a field made only of digits as a number,** quoted or not. A code with more than 15 digits then loses precision, and one with a leading zero loses the zero. Crop delimitation codes have up to 16 digits.
 - **The printed logbook ([ADR 0006](0006-printable-logbook-as-html.md)) already decides what each table holds:** its columns, the text of each cell, the labels, and the order of the records. Deciding it twice would let the two drift apart.
 
 ## Decision
@@ -18,6 +19,7 @@ What shapes the format:
 - **`renderLogbookCsv(logbook, { catalogues, dgcs })` returns one CSV file per table of the printed logbook,** plus one for the holding. The files are `explotacion.csv` (field and value), `parcelas-declaradas.csv` (only when the holding declares any), `tratamientos.csv`, `fertilizacion.csv`, `riego.csv` and `plan-de-abonado.csv`. A table with no records is a header row alone.
 - **The printed logbook and the CSV come from one tabulation,** `src/print/tables.ts`. It decides the columns, cells, labels, order and the deletion requests left out, and each renderer only formats it. A cell's lines are joined with ` | ` in CSV and with line breaks in HTML.
 - **Format:** UTF-8 with a byte order mark; fields separated by `;`; records ending in CRLF, the last one included; every field quoted, with quotes doubled. Numbers keep the printed logbook's decimal comma and dates its `dd/mm/yyyy`.
+- **Identifiers stay text.** Every identifier is written with a word that names it, in both the CSV and the printed logbook: `DGC propia 9007199254740993`, `Contador 0123`, `Código 07` for a code without a label, as `SIGPAC`, `ROPO`, `ROMA` and the rest already were. No identifier field is a bare number a spreadsheet could change. Quantities, such as areas and doses, stay bare numbers, so a spreadsheet can add them up. A test checks that no field is a digit string with a leading zero or more than 15 digits.
 - **Formula neutralisation:** a field whose first character, after any spaces, is `=`, `+`, `-` or `@`, or the full-width `＝`, `＋`, `－` or `＠`, is prefixed with an apostrophe, which spreadsheets show as text. Control characters can't start a field, because validation rejects them in every value and label.
 - **Same safety as the rest of the library:** labels are validated as untrusted input, and the same input gives the same bytes.
 
@@ -27,6 +29,7 @@ What shapes the format:
 - **One row per crop delimitation or per product:** each row would hold a single value, easier to sum. A treatment on three delimitations with two products would become six rows, which looks like six treatments to anyone counting rows. It could come later as a separate, explicitly flat export.
 - **Raw codes and ISO numbers, for machines:** easier to re-import. Machines already have the CUE JSON and the model itself, and these files are for people. That is also why the files follow Spanish conventions, as the printed logbook does.
 - **Comma separators and no byte order mark, plain RFC 4180:** the most portable. In a spreadsheet set up for Spain, a comma-separated file with decimal commas opens as one column, and accents can break.
+- **Other ways to keep identifiers as text:** an apostrophe changes the text, and this record keeps it for formulas; `="..."` is itself a formula; a leading tab is invisible and is a formula trigger in some spreadsheets. Naming the identifier needs none of them, and reads better printed too.
 - **Stripping the dangerous character instead of prefixing:** it would change the record's text. The apostrophe keeps the text whole and shows it as typed.
 
 ## Consequences

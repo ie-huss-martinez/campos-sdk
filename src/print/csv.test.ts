@@ -39,7 +39,7 @@ describe("renderLogbookCsv", () => {
   it("writes UTF-8 with a byte order mark, semicolons, quotes and CRLF", () => {
     const holding = files(minimalLogbook)["explotacion.csv"];
     expect(holding).toBe(
-      `${BOM}"Campo";"Valor"\r\n"Código REA";"ES000000000003"\r\n"NIF del titular";"X9000001D"\r\n"NIF de la unidad gestora";"X9000001D"\r\n"Organismo pagador";"13"\r\n`,
+      `${BOM}"Campo";"Valor"\r\n"Código REA";"ES000000000003"\r\n"NIF del titular";"X9000001D"\r\n"NIF de la unidad gestora";"X9000001D"\r\n"Organismo pagador";"Código 13"\r\n`,
     );
   });
 
@@ -72,6 +72,25 @@ describe("renderLogbookCsv", () => {
     expect(output["explotacion.csv"]).toContain(`"'=HYPERLINK(""http://x"",""clic"")"`);
     expect(output["explotacion.csv"]).toContain(`"'@SUM(1)"`);
     expect(output["tratamientos.csv"]).toContain(`"'-Fungicida (nº de registro ES-00001) | `);
+  });
+
+  it("never writes an identifier a spreadsheet would read as a number", () => {
+    const fields = (csv: string): string[] =>
+      [...csv.matchAll(/"((?:[^"]|"")*)"/g)].map((match) => (match[1] ?? "").replaceAll('""', '"'));
+    for (const [name, csv] of Object.entries(files(fullLogbook))) {
+      for (const field of fields(csv)) {
+        expect([name, field]).not.toEqual([name, expect.stringMatching(/^(0\d+|\d{16,})$/)]);
+      }
+    }
+    const output = files(fullLogbook);
+    expect(output["parcelas-declaradas.csv"]).toContain('"DGC propia 9007199254740993"');
+    expect(output["explotacion.csv"]).toContain('"Organismo pagador";"Código 07"');
+    expect(output["riego.csv"]).toContain('"Contador CONT-0002 | 3"');
+    expect(
+      files(fullLogbook, {
+        catalogues: { payingAgency: [{ code: "07", label: "Castilla y León" }] },
+      })["explotacion.csv"],
+    ).toContain('"Castilla y León (07)"');
   });
 
   it("gives the same bytes for the same input", () => {

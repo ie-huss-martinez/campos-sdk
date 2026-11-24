@@ -81,6 +81,8 @@ export interface CatalogueEntry {
   readonly code: number | string;
   /** The date the code was retired (`Fecha de baja`), `YYYY-MM-DD`. Retired codes stay in the catalogue. */
   readonly retiredOn?: string;
+  /** The code's name, as the catalogue gives it, for printed documents. Up to 250 characters. */
+  readonly label?: string;
 }
 
 /**
@@ -93,11 +95,18 @@ export type CatalogueSnapshot = Partial<Record<CatalogueName, readonly Catalogue
 export const MAX_CATALOGUE_ENTRIES = 200_000;
 
 /** A code's key: numbers and digit text compare by value, so 5 matches "05". */
-const key = (code: number | string): string =>
+export const codeKey = (code: number | string): string =>
   typeof code === "number" ? String(code) : /^\d{1,16}$/.test(code) ? String(Number(code)) : code;
 
-/** A validated snapshot: for each catalogue, each code's retirement date or null. */
-export type Catalogues = ReadonlyMap<CatalogueName, ReadonlyMap<string, string | null>>;
+export interface CatalogueCode {
+  /** The retirement date, or null when the code is current. */
+  readonly retiredOn: string | null;
+  /** The code's name, when the snapshot gives one. */
+  readonly label: string | undefined;
+}
+
+/** A validated snapshot: for each catalogue, each code's details by its key. */
+export type Catalogues = ReadonlyMap<CatalogueName, ReadonlyMap<string, CatalogueCode>>;
 
 /** Validates a snapshot the application supplied. It is untrusted input too. */
 export function readCatalogues(
@@ -105,36 +114,39 @@ export function readCatalogues(
   value: unknown,
   path: readonly PathSegment[],
 ): Catalogues {
-  const out = new Map<CatalogueName, Map<string, string | null>>();
+  const out = new Map<CatalogueName, Map<string, CatalogueCode>>();
   const fields = readObject(ctx, value, path, CATALOGUE_NAMES);
   for (const name of CATALOGUE_NAMES) {
     const entries = fields?.get(name);
     if (entries === undefined) {
       continue;
     }
-    const codes = new Map<string, string | null>();
+    const codes = new Map<string, CatalogueCode>();
     readList(ctx, entries, [...path, name], 0, MAX_CATALOGUE_ENTRIES, (entry, entryPath) => {
-      const entryFields = readObject(ctx, entry, entryPath, ["code", "retiredOn"]);
+      const entryFields = readObject(ctx, entry, entryPath, ["code", "retiredOn", "label"]);
       const code = entryFields?.get("code");
       if (entryFields === undefined) {
         return undefined;
       }
-      let codeKey: string | undefined;
+      let entryKey: string | undefined;
       if (typeof code === "number" && Number.isSafeInteger(code) && code >= 0) {
-        codeKey = key(code);
+        entryKey = codeKey(code);
       } else if (code === undefined) {
         ctx.report("REQUIRED", [...entryPath, "code"], "A catalogue entry needs a code.");
       } else {
         const textCode = text(ctx, code, [...entryPath, "code"], { max: 32 });
-        codeKey = textCode === undefined ? undefined : key(textCode);
+        entryKey = textCode === undefined ? undefined : codeKey(textCode);
       }
       const retired = entryFields.get("retiredOn");
       const retiredOn =
         retired === undefined ? null : (isoDate(ctx, retired, [...entryPath, "retiredOn"]) ?? null);
-      if (codeKey !== undefined) {
-        codes.set(codeKey, retiredOn);
+      const label = entryFields.has("label")
+        ? text(ctx, entryFields.get("label"), [...entryPath, "label"], { max: 250 })
+        : undefined;
+      if (entryKey !== undefined) {
+        codes.set(entryKey, Object.freeze({ retiredOn, label }));
       }
-      return codeKey;
+      return entryKey;
     });
     out.set(name, codes);
   }
@@ -157,7 +169,7 @@ export function checkCode(
   if (codes === undefined || code === undefined) {
     return;
   }
-  const retiredOn = codes.get(key(code));
+  const retiredOn = codes.get(codeKey(code))?.retiredOn;
   if (retiredOn === undefined) {
     ctx.report("UNKNOWN_CODE", path, `The code isn't in the "${name}" catalogue supplied.`);
   } else if (retiredOn !== null && onDate !== undefined && retiredOn <= onDate) {

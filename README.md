@@ -44,6 +44,21 @@ if (version.ok) {
 }
 ```
 
+For people, `renderLogbookHtml` prints the same logbook with the fields of
+RD 1311/2012, Annex III, Part I: one self-contained HTML document, in Spanish,
+with no script, ready to print or save as PDF. Give it your snapshot's labels so
+codes print with their names:
+
+```ts
+const printed = renderLogbookHtml(result.value, {
+  catalogues: { crop: [{ code: 1, label: "Trigo blando" }] },
+  dgcs: [{ dgc: "5", label: "Pol. 5, par. 120, rec. 3" }],
+});
+if (printed.ok) {
+  save(printed.value.html);
+}
+```
+
 The model covers the holding, crop delimitations it declares, plant-protection
 treatments, fertiliser applications, fertilisation plans and irrigations. Its
 fields are documented in [`src/model.ts`](src/model.ts), each with the official

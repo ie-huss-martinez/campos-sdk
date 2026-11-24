@@ -10,6 +10,7 @@ describe("the package's public API", () => {
       "ISSUE_CODES",
       "cueVersionForInterface",
       "renderCue",
+      "renderLogbookCsv",
       "renderLogbookHtml",
       "validateLogbook",
     ]);

@@ -64,6 +64,10 @@ if (printed.ok) {
 }
 ```
 
+`renderLogbookCsv` exports the same tables as CSV files, one per table, for
+spreadsheets set up for Spain: UTF-8 with a byte order mark, `;`-separated, every
+field quoted, and any field a spreadsheet would run as a formula kept as text.
+
 The model covers the holding, crop delimitations it declares, plant-protection
 treatments, fertiliser applications, fertilisation plans and irrigations. Its
 fields are documented in [`src/model.ts`](src/model.ts), each with the official

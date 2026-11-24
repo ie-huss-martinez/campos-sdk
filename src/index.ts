@@ -14,6 +14,8 @@ export { CUE_VERSIONS, cueVersionForInterface, INTERFACE_VERSIONS } from "./cue/
 export type { Issue, IssueCode, PathSegment, Result } from "./issues.ts";
 export { ISSUE_CODES } from "./issues.ts";
 export type * from "./model.ts";
+export type { CsvFile, LogbookCsv, RenderCsvOptions } from "./print/csv.ts";
+export { renderLogbookCsv } from "./print/csv.ts";
 export type { LogbookHtml, RenderHtmlOptions } from "./print/html.ts";
 export { renderLogbookHtml } from "./print/html.ts";
 export type { DgcLabel } from "./print/labels.ts";

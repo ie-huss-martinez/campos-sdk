@@ -105,6 +105,9 @@ function holding(
     "managingUnitNif",
     "payingAgency",
     "notebookId",
+    "name",
+    "address",
+    "holderName",
   ]);
   if (f === undefined) {
     return undefined;
@@ -118,6 +121,9 @@ function holding(
     managingUnitNif: required(f, "managingUnitNif", nif),
     payingAgency,
     notebookId: optional(f, "notebookId", intOf(99_999_999)),
+    name: optional(f, "name", textOf(150)),
+    address: optional(f, "address", textOf(250)),
+    holderName: optional(f, "holderName", textOf(150)),
   });
 }
 

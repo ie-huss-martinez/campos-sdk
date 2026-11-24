@@ -24,7 +24,12 @@ application.
 ## Usage
 
 ```ts
-import { cueVersionForInterface, renderCue, validateLogbook } from "@hussmartinez/campos-sdk";
+import {
+  cueVersionForInterface,
+  renderCue,
+  renderLogbookHtml,
+  validateLogbook,
+} from "@hussmartinez/campos-sdk";
 
 // Records from your application: untrusted until validated.
 const result = validateLogbook(records, { catalogues: mySiexSnapshot });
@@ -41,6 +46,21 @@ if (version.ok) {
   if (cue.ok) {
     send(cue.value.json); // the body of an IUWS `crear` call, version "3.11.4"
   }
+}
+```
+
+For people, `renderLogbookHtml` prints the same logbook with the fields of
+RD 1311/2012, Annex III, Part I: one self-contained HTML document, in Spanish,
+with no script, ready to print or save as PDF. Give it your snapshot's labels so
+codes print with their names:
+
+```ts
+const printed = renderLogbookHtml(result.value, {
+  catalogues: { crop: [{ code: 1, label: "Trigo blando" }] },
+  dgcs: [{ dgc: "5", label: "Pol. 5, par. 120, rec. 3" }],
+});
+if (printed.ok) {
+  save(printed.value.html);
 }
 ```
 

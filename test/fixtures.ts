@@ -15,6 +15,9 @@ export const fullLogbook = {
     managingUnitNif: "B90000001",
     payingAgency: "07",
     notebookId: 12345678,
+    name: "Finca El Ejemplo",
+    address: "Camino de la Prueba, s/n, 00000 Lugar Ficticio",
+    holderName: "Ana Ejemplo Ficticio",
   },
   cropDelimitations: [
     {

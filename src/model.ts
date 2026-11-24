@@ -50,6 +50,12 @@ export interface Holding {
   readonly payingAgency: string;
   /** The administration's identifier of the logbook (`IdCuaderno`), up to 8 digits. */
   readonly notebookId?: number;
+  /** The holding's name: RD 1311/2012, Annex III, Part I, A.1.a. Up to 150 characters. Not part of the CUE document. */
+  readonly name?: string;
+  /** The holding's address: Annex III, Part I, A.1.a. Up to 250 characters. Not part of the CUE document. */
+  readonly address?: string;
+  /** The holder's name and surnames: Annex III, Part I, A.1.b. Up to 150 characters. Not part of the CUE document. */
+  readonly holderName?: string;
 }
 
 /** A SIGPAC enclosure reference. Province and municipality use SIGPAC's codes, not INE's. */

@@ -68,8 +68,10 @@ if (printed.ok) {
 spreadsheets set up for Spain: UTF-8 with a byte order mark, `;`-separated, every
 field quoted, and any field a spreadsheet would run as a formula kept as text.
 
-The model covers the holding, crop delimitations it declares, plant-protection
-treatments, fertiliser applications, fertilisation plans and irrigations. Its
+The model covers all of RD 1311/2012, Annex III, Part I: the holding with its
+staff, advisers, water sources and equipment, its parcels and soil data, the crop
+delimitations it declares, plant-protection treatments, fertiliser
+applications, fertilisation plans and irrigations. Its
 fields are documented in [`src/model.ts`](src/model.ts), each with the official
 CUE field it maps to. Catalogue snapshots are optional; the library checks the
 codes of every catalogue you pass and bundles none.

@@ -16,6 +16,7 @@ import type {
   Irrigation,
   Logbook,
   NutrientShare,
+  SoilAnalysis,
   Treatment,
   TreatmentDgc,
   TreatmentEquipment,
@@ -279,6 +280,37 @@ const fertilisationPlan = (p: FertilisationPlan): JsonObject =>
     ["DGCs", p.dgcs.map((dgc) => object(dgcKeys(dgc)))],
   ]);
 
+const soilAnalysis = (a: SoilAnalysis): JsonObject => {
+  const parameters = object([
+    ["MateriaOrganica", a.organicMatter],
+    ["Arena", a.sand],
+    ["Limo", a.silt],
+    ["Arcilla", a.clay],
+    ["Ph", a.ph],
+    ["FosforoAsimilable", a.phosphorus],
+    ["PotasioAsimilable", a.potassium],
+    ["NitrogenoTotal", a.nitrogen],
+    ["Conductividad", a.conductivity],
+  ]);
+  return object([
+    ["IdAjenaAna", a.id],
+    ["Borrar", a.deleted],
+    ["MaterialAnalizado", a.material],
+    ["Fecha", cueDate(a.date)],
+    ["Laboratorio", a.laboratory],
+    ["Nif", a.laboratoryNif],
+    ["NumBoletin", a.reportNumber],
+    ["TiposAnalisis", codes("TipoAnalisis", a.analysisTypes)],
+    ["TiposSustancias", codes("TipoSustancia", a.substances)],
+    ["ParametrosSuelo", Object.keys(parameters).length === 0 ? undefined : parameters],
+    ["DGCs", a.dgcs?.map((dgc) => object(dgcKeys(dgc)))],
+  ]);
+};
+
+/** Laboratory analyses only: data from maps or registers isn't an activity. */
+const analyses = (logbook: Logbook): readonly SoilAnalysis[] =>
+  (logbook.soilAnalyses ?? []).filter((a) => a.source === "laboratory");
+
 const irrigation = (r: Irrigation): JsonObject =>
   object([
     ["IdAjenaRiego", r.id],
@@ -328,6 +360,16 @@ function targetIssues(logbook: Logbook): Issue[] {
       );
     }
   });
+  logbook.soilAnalyses?.forEach((a, index) => {
+    if (a.source === "laboratory" && a.material === undefined) {
+      report(
+        "REQUIRED_BY_TARGET",
+        ["soilAnalyses", index, "material"],
+        a.id,
+        "CUE 3.11.4 requires the analysed material (MaterialAnalizado) of an analysis.",
+      );
+    }
+  });
   return issues;
 }
 
@@ -346,6 +388,7 @@ export function renderCue3114(logbook: Logbook): {
     ["TratamFito", logbook.treatments?.map(treatment)],
     ["Fertilizacion", logbook.fertilisations?.map(fertilisation)],
     ["PlanAbonado", logbook.fertilisationPlans?.map(fertilisationPlan)],
+    ["Analitica", analyses(logbook).map(soilAnalysis)],
     ["Riego", logbook.irrigations?.map(irrigation)],
   ]);
   const notebook = object([

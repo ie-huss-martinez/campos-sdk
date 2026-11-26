@@ -116,8 +116,9 @@ describe("renderLogbookHtml", () => {
     input.treatments.push({ ...input.treatments[0]!, id: 8, start: "2027-03-01", deleted: true });
     input.cropDelimitations[0]!["deleted"] = true;
     const output = html(input);
+    const treatments = output.slice(output.indexOf("B. Tratamientos"));
     const order = [
-      ...output.matchAll(/<td>(\d{2}\/\d{2}\/\d{4})(?: – (\d{2}\/\d{2}\/\d{4}))?<\/td>/g),
+      ...treatments.matchAll(/<td>(\d{2}\/\d{2}\/\d{4})(?: – (\d{2}\/\d{2}\/\d{4}))?<\/td>/g),
     ].map((match) => match[0]);
     expect(output).not.toContain("01/03/2027");
     expect(output).toContain("<td>Sin registros.</td>".replace("<td>", '<td colspan="7">'));
@@ -190,7 +191,7 @@ describe("renderLogbookHtml", () => {
 
   it("says so when a section has no records", () => {
     const output = html(minimalLogbook);
-    expect(output.match(/Sin registros\./g)).toHaveLength(4);
+    expect(output.match(/Sin registros\./g)).toHaveLength(9);
   });
 
   it("writes numbers with a decimal comma, and times and periods", () => {

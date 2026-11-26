@@ -34,6 +34,10 @@ export interface Logbook {
   readonly fertilisationPlans?: readonly FertilisationPlan[];
   /** Irrigations (`Riego`). */
   readonly irrigations?: readonly Irrigation[];
+  /** The holding's parcels: RD 1311/2012, Annex III, Part I, A.2. Not part of the CUE document. */
+  readonly parcels?: readonly Parcel[];
+  /** Soil data, from analyses or provincial maps: Annex III, Part I, A.3. Analyses are `Analitica` in the CUE document. */
+  readonly soilAnalyses?: readonly SoilAnalysis[];
 }
 
 /** The holding the logbook belongs to. */
@@ -56,6 +60,150 @@ export interface Holding {
   readonly address?: string;
   /** The holder's name and surnames: Annex III, Part I, A.1.b. Up to 150 characters. Not part of the CUE document. */
   readonly holderName?: string;
+  /** Own staff with a professional user's card, or who are advisers: Annex III, Part I, A.1.c. */
+  readonly staff?: readonly StaffMember[];
+  /** The recognised advisory group or entity the holding belongs to: A.1.d. */
+  readonly advisoryEntity?: AdvisoryEntity;
+  /** Whether the holding lies in the protected areas of RD 1311/2012, art. 35: A.1.e. */
+  readonly protectedArea?: "none" | "partial" | "whole";
+  /** Water bodies used to abstract drinking water, art. 33.a: A.1.f. */
+  readonly waterBodies?: readonly WaterSource[];
+  /** Drinking-water abstraction points, art. 33.b: A.1.g. */
+  readonly abstractionPoints?: readonly WaterSource[];
+  /** The holding's own application equipment: A.1.h. */
+  readonly ownEquipment?: readonly OwnEquipment[];
+}
+
+/** A member of the holding's own staff: Annex III, Part I, A.1.c. */
+export interface StaffMember {
+  /** Name and surnames, up to 150 characters. */
+  readonly name: string;
+  readonly nif?: string;
+  /** ROPO registration, up to 14 characters. */
+  readonly ropo?: string;
+  /** Holds a professional user's card, or can show they are an adviser. */
+  readonly qualification: "professionalUser" | "adviser";
+}
+
+/** An advisory group or entity: Annex III, Part I, A.1.d. */
+export interface AdvisoryEntity {
+  /** Up to 150 characters. */
+  readonly name: string;
+  /** Its registration or recognition reference, up to 50 characters. */
+  readonly registration?: string;
+}
+
+/** A water body or abstraction point for drinking water: Annex III, Part I, A.1.f and g. */
+export interface WaterSource {
+  /** Its name or description, up to 150 characters. */
+  readonly name: string;
+  /** Distance in metres, when it lies outside the parcel; up to 99,999. */
+  readonly distance?: number;
+}
+
+/** A piece of the holding's own application equipment: Annex III, Part I, A.1.h. */
+export interface OwnEquipment {
+  /** Its name or description, up to 150 characters. */
+  readonly name: string;
+  /** ROMA registration, up to 12 characters. */
+  readonly roma?: string;
+  /** Its reference in another census, such as for fixed equipment, up to 50 characters. */
+  readonly censusReference?: string;
+  /** Date of purchase. Give it, or the last inspection's date, or both. */
+  readonly acquiredOn?: string;
+  /** Date of the last inspection. */
+  readonly lastInspectedOn?: string;
+}
+
+/** One of the holding's parcels: RD 1311/2012, Annex III, Part I, A.2. */
+export interface Parcel {
+  /** The holding's own sequential number for it, from 1 to 99,999: A.2.a. */
+  readonly number: number;
+  /** A.2.b. */
+  readonly sigpac: SigpacReference;
+  /** Hectares, four decimals: A.2.c. */
+  readonly area: number;
+  /** SIGPAC use, such as `TA`: A.2.d. Catalogue `sigpacUse`. */
+  readonly sigpacUse: string;
+  /** Land use (*aprovechamiento*): A.2.d. */
+  readonly landUse: "crop" | "pasture" | "forestry";
+  /** The crop, and for woody crops its variety: A.2.d. Catalogue `crop`. */
+  readonly crop?: number;
+  /** Catalogue `variety`. */
+  readonly variety?: number;
+  /** Irrigated or dryland: A.2.e. */
+  readonly irrigated: boolean;
+  /** For irrigated parcels. Catalogue `irrigationSystem`. */
+  readonly irrigationSystem?: number;
+  /** Protected cultivation, such as under a greenhouse, rather than in the open air: A.2.e. */
+  readonly protectedCultivation: boolean;
+  /** The kind of protection, up to 100 characters. */
+  readonly protectionType?: string;
+  /** Certification scheme and pest-management framework (art. 10), if any: A.2.f. Up to 150 characters. */
+  readonly certification?: string;
+}
+
+/** Heavy metals in the top 25 cm of soil, in mg/kg: Annex III, Part I, A.3.ii. Not part of the CUE document. */
+export interface SoilHeavyMetals {
+  readonly cadmium?: number;
+  readonly copper?: number;
+  readonly nickel?: number;
+  readonly lead?: number;
+  readonly zinc?: number;
+  readonly mercury?: number;
+  readonly chromium?: number;
+}
+
+/**
+ * Soil data for some of the holding's land: Annex III, Part I, A.3. A
+ * laboratory analysis is the CUE document's `Analitica`; data taken from
+ * provincial maps or registers isn't an analysis, and is only printed.
+ */
+export interface SoilAnalysis {
+  /** The application's identifier (`IdAjenaAna`), up to 10 digits. */
+  readonly id: number;
+  readonly deleted?: boolean;
+  /** Where the data comes from: a laboratory analysis, or provincial maps or registers. */
+  readonly source: "laboratory" | "map";
+  /** The sampling date (`Fecha`), or the date of the map or register data. */
+  readonly date: string;
+  /** `MaterialAnalizado`. Catalogue `analysedMaterial`. The CUE document requires it for an analysis. */
+  readonly material?: number;
+  /** `Laboratorio`, up to 150 characters. */
+  readonly laboratory?: string;
+  /** The laboratory's NIF (`Nif`). */
+  readonly laboratoryNif?: string;
+  /** `NumBoletin`, up to 50 characters. */
+  readonly reportNumber?: string;
+  /** `TiposAnalisis.TipoAnalisis`. Catalogue `analysisType`. */
+  readonly analysisTypes?: readonly number[];
+  /** `TiposSustancias.TipoSustancia`. Catalogue `analysedSubstance`. */
+  readonly substances?: readonly number[];
+  /** `Ph`, two decimals. */
+  readonly ph?: number;
+  /** Organic matter in the top 30 cm, percent (`MateriaOrganica`), two decimals. */
+  readonly organicMatter?: number;
+  /**
+   * Assimilable phosphorus in the top 30 cm, ppm (`FosforoAsimilable`), two
+   * decimals. UNVERIFIED: the CUE descriptor says "ppm de fósforo asimilable"
+   * and Annex III asks for P₂O₅; neither says whether the value is P or P₂O₅.
+   */
+  readonly phosphorus?: number;
+  /** Assimilable potassium in the top 30 cm, ppm (`PotasioAsimilable`), two decimals. UNVERIFIED as K or K₂O, as for phosphorus. */
+  readonly potassium?: number;
+  /** Total nitrogen, percent (`NitrogenoTotal`), two decimals. */
+  readonly nitrogen?: number;
+  /** Sand, percent (`Arena`), two decimals. */
+  readonly sand?: number;
+  /** Silt, percent (`Limo`), two decimals. */
+  readonly silt?: number;
+  /** Clay, percent (`Arcilla`), two decimals. */
+  readonly clay?: number;
+  /** Electrical conductivity at 25 °C, dS/m (`Conductividad`), two decimals. */
+  readonly conductivity?: number;
+  readonly heavyMetals?: SoilHeavyMetals;
+  /** The crop delimitations the data applies to (`DGCs`). */
+  readonly dgcs?: readonly DgcReference[];
 }
 
 /** A SIGPAC enclosure reference. Province and municipality use SIGPAC's codes, not INE's. */

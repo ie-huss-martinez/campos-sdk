@@ -311,7 +311,7 @@ jobs:
 
       # npm can only trust a publisher for a package that exists. Before the
       # first version, the maintainer creates the package with a deprecated
-      # placeholder, 0.0.0-stage, from their own npm login, and sets its
+      # placeholder, 0.0.0-placeholder, from their own npm login, and sets its
       # trusted publisher (ADR 0009). Without that, this step stops the run
       # with the steps, instead of a bare ENEEDAUTH from npm publish.
       - name: Stop until the package exists on npm
@@ -327,10 +327,10 @@ jobs:
             echo ""
             echo '```sh'
             echo "npm login"
-            echo "# in an empty folder, with a package.json naming $name at version 0.0.0-stage:"
-            echo "npm publish --access public --tag stage"
+            echo "# in an empty folder, with a package.json naming $name at version 0.0.0-placeholder:"
+            echo "npm publish --access public --tag placeholder"
             echo "# on npmjs.com: set the trusted publisher with \"npm publish\" allowed, require 2FA and disallow tokens"
-            echo "npm deprecate $name@0.0.0-stage \"Placeholder for setting up trusted publishing. Not a release.\""
+            echo "npm deprecate $name@0.0.0-placeholder \"Placeholder for setting up trusted publishing. Not a release.\""
             echo "gh run rerun $RUN_ID --failed -R $GITHUB_REPOSITORY"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

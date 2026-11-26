@@ -16,4 +16,4 @@ Use [`template.md`](template.md) for new records. Name files `NNNN-short-title.m
 | [0006](0006-printable-logbook-as-html.md) | The printable logbook is one self-contained HTML document | Accepted; its note on missing sections amended by [0008](0008-annex-iii-part-a-and-soil-analyses.md) |
 | [0007](0007-csv-export.md) | CSV export: the printed logbook's tables, safe to open in a spreadsheet | Accepted |
 | [0008](0008-annex-iii-part-a-and-soil-analyses.md) | Annex III, Part I, section A in the model, and soil analyses | Accepted; amends [0006](0006-printable-logbook-as-html.md) |
-| [0009](0009-first-publish-through-a-placeholder.md) | The first publish goes through a placeholder, not a token | Accepted; amends [0003](0003-tooling-build-and-release.md) |
+| [0009](0009-first-publish-through-a-placeholder.md) | The first publish goes through a placeholder, not a token | Accepted; amends [0003](0003-tooling-build-and-release.md); corrected on the placeholder's version |

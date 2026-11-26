@@ -25,7 +25,7 @@ Please include:
 
 The package is pre-1.0, so security fixes go into the latest release only. Upgrade to it to receive them; earlier `0.x` versions get no backports.
 
-Every version is published from this repository's release workflow, with npm provenance. Each version's GitHub Release attaches the tarball, `SHA256SUMS` and an artifact attestation.
+Every version is published from this repository's release workflow, with npm provenance. Each version's GitHub Release attaches the tarball, `SHA256SUMS` and an artifact attestation. The deprecated `0.0.0-stage` is a placeholder the maintainer published once to set up trusted publishing: it holds only a `package.json`, and isn't a release.
 
 - **To check where a tarball was built,** run `gh attestation verify <tarball> --repo ie-huss-martinez/campos-sdk`. It fails unless the attestation names this repository.
 - **`npm audit signatures`** checks that installed packages match the registry's signatures and that their provenance attestations are valid. It doesn't check which repository built them; the provenance shown on the package's npm page, or the command above, does.

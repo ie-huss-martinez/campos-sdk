@@ -70,6 +70,14 @@ export const CATALOGUE_NAMES = [
   "irrigationSystem",
   /** "Origen del agua de riego". */
   "waterOrigin",
+  /** "Uso SIGPAC", of a parcel. Its codes are text, such as `TA`. */
+  "sigpacUse",
+  /** "Material analizado". */
+  "analysedMaterial",
+  /** "Tipo de Análisis". */
+  "analysisType",
+  /** "Tipo de sustancias activas", of an analysis. */
+  "analysedSubstance",
 ] as const;
 
 /** The name of a catalogue the model's codes come from. */

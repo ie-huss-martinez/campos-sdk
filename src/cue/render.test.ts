@@ -136,6 +136,7 @@ describe("renderCue, version 3.11.4", () => {
       "TratamFito",
       "Fertilizacion",
       "PlanAbonado",
+      "Analitica",
       "Riego",
     ]);
   });
@@ -180,6 +181,50 @@ describe("renderCue, version 3.11.4", () => {
         recordId: 2,
       }),
     ]);
+  });
+
+  it("writes laboratory soil analyses, and leaves out data from maps", () => {
+    const notebook = JSON.parse(render(fullLogbook)).CUADERNO[0];
+    expect(notebook.ActividadesExplotacion.Analitica).toEqual([
+      {
+        IdAjenaAna: 5,
+        MaterialAnalizado: 1,
+        Fecha: "01/09/2026",
+        Laboratorio: "Laboratorio Ficticio de Suelos",
+        Nif: "B90000001",
+        NumBoletin: "BOL-2026-0001",
+        TiposAnalisis: [{ TipoAnalisis: 1 }],
+        TiposSustancias: [{ TipoSustancia: 2 }],
+        ParametrosSuelo: {
+          MateriaOrganica: 1.6,
+          Arena: 30,
+          Limo: 40,
+          Arcilla: 30,
+          Ph: 7.85,
+          FosforoAsimilable: 18.4,
+          PotasioAsimilable: 245,
+          NitrogenoTotal: 0.11,
+          Conductividad: 0.35,
+        },
+        DGCs: [{ CodigoDGC: 1234567890123456, CodigoCultivo: 77 }],
+      },
+    ]);
+    expect(render(fullLogbook)).not.toContain("Cadmio");
+    const sparse = JSON.parse(render(sparseLogbook)).CUADERNO[0].ActividadesExplotacion.Analitica;
+    expect(sparse).toEqual([{ IdAjenaAna: 15, MaterialAnalizado: 1, Fecha: "01/10/2026" }]);
+  });
+
+  it("reports an analysis without the material the version requires", () => {
+    const input = copy(sparseLogbook) as unknown as {
+      soilAnalyses: Array<Record<string, unknown>>;
+    };
+    delete input.soilAnalyses[0]!["material"];
+    const result = renderCue(valid(input), { version: "3.11.4" });
+    expect(
+      result.issues.map((issue) => [issue.code, issue.path.join("."), issue.recordId]),
+    ).toEqual([["REQUIRED_BY_TARGET", "soilAnalyses.0.material", 15]]);
+    input.soilAnalyses[0]!["source"] = "map";
+    expect(renderCue(valid(input), { version: "3.11.4" }).ok).toBe(true);
   });
 
   it("reports fertiliser equipment the schema can't accept", () => {

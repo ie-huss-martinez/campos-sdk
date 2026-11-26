@@ -27,7 +27,12 @@ describe("renderLogbookCsv", () => {
   it("writes one file for the holding and one per table", () => {
     expect(Object.keys(files(fullLogbook))).toEqual([
       "explotacion.csv",
+      "personal.csv",
+      "agua-consumo-humano.csv",
+      "equipos-propios.csv",
+      "parcelas.csv",
       "parcelas-declaradas.csv",
+      "suelo.csv",
       "tratamientos.csv",
       "fertilizacion.csv",
       "riego.csv",

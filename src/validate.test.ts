@@ -51,6 +51,13 @@ describe("validateLogbook", () => {
     "fertilisationPlans.0.dgcs.0",
     "irrigations.0",
     "irrigations.0.dgcs.0",
+    "holding.staff.0",
+    "holding.advisoryEntity",
+    "holding.waterBodies.0",
+    "holding.ownEquipment.0",
+    "parcels.0",
+    "soilAnalyses.0",
+    "soilAnalyses.0.heavyMetals",
   ])("rejects %s when it isn't an object", (path) => {
     const input = full();
     const segments = path.split(".");
@@ -479,6 +486,79 @@ describe("validateLogbook", () => {
       fertigation["dose"] = 2;
       expect(issues(input)).toEqual([]);
     });
+  });
+
+  describe("Annex III, Part I, section A", () => {
+    it("checks the holding's staff, advisory entity, water and equipment", () => {
+      const input = full();
+      input.holding["staff"] = [
+        { name: "X", qualification: "farmer" },
+        { name: "Y", nif: "1" },
+      ];
+      input.holding["protectedArea"] = "some";
+      input.holding["waterBodies"] = [{ name: "Río", distance: 100_000 }];
+      input.holding["ownEquipment"] = [{ name: "Atomizador" }];
+      input.holding["advisoryEntity"] = { registration: "R" };
+      expect(issues(input)).toEqual([
+        "INVALID_FORMAT at holding.staff.0.qualification",
+        "INVALID_FORMAT at holding.staff.1.nif",
+        "REQUIRED at holding.staff.1.qualification",
+        "REQUIRED at holding.advisoryEntity.name",
+        "INVALID_FORMAT at holding.protectedArea",
+        "OUT_OF_RANGE at holding.waterBodies.0.distance",
+        "AT_LEAST_ONE at holding.ownEquipment.0",
+      ]);
+    });
+
+    it("checks parcels, their numbers and their exclusive fields", () => {
+      const input = full();
+      const parcels = input["parcels"] as Array<Record<string, unknown>>;
+      parcels[1]!["number"] = 1;
+      parcels[1]!["irrigationSystem"] = 2;
+      parcels[0]!["protectionType"] = "Malla";
+      parcels[0]!["sigpacUse"] = "ta";
+      parcels[0]!["area"] = 1.23456;
+      parcels[0]!["landUse"] = "orchard";
+      expect(issues(input)).toEqual([
+        "CONFLICT at parcels.0.protectionType",
+        "INVALID_FORMAT at parcels.0.sigpacUse",
+        "TOO_MANY_DECIMALS at parcels.0.area",
+        "INVALID_FORMAT at parcels.0.landUse",
+        "CONFLICT at parcels.1.irrigationSystem",
+        "DUPLICATE_ID at parcels.1.number",
+      ]);
+    });
+
+    it("checks soil analyses", () => {
+      const input = full();
+      const analyses = input["soilAnalyses"] as Array<Record<string, unknown>>;
+      analyses[0]!["source"] = "lab";
+      analyses[0]!["ph"] = 100;
+      analyses[0]!["laboratoryNif"] = "B9000000A";
+      analyses[0]!["heavyMetals"] = { cadmium: 0.1234, arsenic: 1 };
+      analyses[1]!["dgcs"] = [{ declaredDgc: "1" }, { declaredDgc: "1" }];
+      expect(issues(input)).toEqual([
+        "OUT_OF_RANGE at soilAnalyses.0.ph",
+        "INVALID_FORMAT at soilAnalyses.0.source",
+        "INVALID_CHECKSUM at soilAnalyses.0.laboratoryNif",
+        "UNKNOWN_FIELD at soilAnalyses.0.heavyMetals.arsenic",
+        "TOO_MANY_DECIMALS at soilAnalyses.0.heavyMetals.cadmium",
+        "DUPLICATE_ITEM at soilAnalyses.1.dgcs.1",
+      ]);
+    });
+  });
+
+  it("reports a crop delimitation referred to twice in one activity", () => {
+    const input = full();
+    input.irrigations[0]!["dgcs"] = [
+      { declaredDgc: "9", area: 1 },
+      { declaredDgc: "9", area: 2 },
+    ];
+    input.fertilisationPlans[0]!["dgcs"] = [
+      { dgc: "5", cropRecord: "1" },
+      { dgc: "5", cropRecord: "2" },
+    ];
+    expect(issues(input)).toEqual(["DUPLICATE_ITEM at irrigations.0.dgcs.1"]);
   });
 
   it("reports identifiers used twice in one kind of record", () => {

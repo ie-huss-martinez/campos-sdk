@@ -1,5 +1,6 @@
 import { type CatalogueName, type Catalogues, checkCode } from "../catalogues.ts";
 import type {
+  AdvisoryEntity,
   CropDelimitation,
   DgcReference,
   DgcWithArea,
@@ -15,7 +16,12 @@ import type {
   Logbook,
   NutrientShare,
   OtherProtectionMeasure,
+  OwnEquipment,
+  Parcel,
   SigpacReference,
+  SoilAnalysis,
+  SoilHeavyMetals,
+  StaffMember,
   Treatment,
   TreatmentAdviser,
   TreatmentApplicator,
@@ -23,6 +29,7 @@ import type {
   TreatmentEquipment,
   TreatmentProduct,
   TreatmentTargets,
+  WaterSource,
 } from "../model.ts";
 import { type Context, isRecord, readList, readObject } from "./context.ts";
 import { dateOrder } from "./fields.ts";
@@ -92,6 +99,76 @@ const fieldsOf = (
   return values === undefined ? undefined : { ctx, path, values };
 };
 
+/** Reads one of a fixed set of text values. */
+const oneOf =
+  <T extends string>(values: readonly T[]) =>
+  (ctx: Context, value: unknown, path: Path): T | undefined => {
+    if (typeof value === "string" && (values as readonly string[]).includes(value)) {
+      return value as T;
+    }
+    ctx.report(
+      "INVALID_FORMAT",
+      path,
+      `Expected one of: ${values.map((v) => `"${v}"`).join(", ")}.`,
+    );
+    return undefined;
+  };
+
+const staffMember = (ctx: Context, value: unknown, path: Path): StaffMember | undefined => {
+  const f = fieldsOf(ctx, value, path, ["name", "nif", "ropo", "qualification"]);
+  return f === undefined
+    ? undefined
+    : build<StaffMember>({
+        name: required(f, "name", textOf(150)),
+        nif: optional(f, "nif", nif),
+        ropo: optional(f, "ropo", textOf(14)),
+        qualification: required(f, "qualification", oneOf(["professionalUser", "adviser"])),
+      });
+};
+
+const advisoryEntity = (ctx: Context, value: unknown, path: Path): AdvisoryEntity | undefined => {
+  const f = fieldsOf(ctx, value, path, ["name", "registration"]);
+  return f === undefined
+    ? undefined
+    : build<AdvisoryEntity>({
+        name: required(f, "name", textOf(150)),
+        registration: optional(f, "registration", textOf(50)),
+      });
+};
+
+const waterSource = (ctx: Context, value: unknown, path: Path): WaterSource | undefined => {
+  const f = fieldsOf(ctx, value, path, ["name", "distance"]);
+  return f === undefined
+    ? undefined
+    : build<WaterSource>({
+        name: required(f, "name", textOf(150)),
+        distance: optional(f, "distance", intOf(99_999)),
+      });
+};
+
+const ownEquipment = (ctx: Context, value: unknown, path: Path): OwnEquipment | undefined => {
+  const f = fieldsOf(ctx, value, path, [
+    "name",
+    "roma",
+    "censusReference",
+    "acquiredOn",
+    "lastInspectedOn",
+  ]);
+  if (f === undefined) {
+    return undefined;
+  }
+  if (countGiven(f, ["acquiredOn", "lastInspectedOn"]) === 0) {
+    ctx.report("AT_LEAST_ONE", path, "Give the date of purchase or of the last inspection.");
+  }
+  return build<OwnEquipment>({
+    name: required(f, "name", textOf(150)),
+    roma: optional(f, "roma", textOf(12)),
+    censusReference: optional(f, "censusReference", textOf(50)),
+    acquiredOn: optional(f, "acquiredOn", date),
+    lastInspectedOn: optional(f, "lastInspectedOn", date),
+  });
+};
+
 function holding(
   ctx: Context,
   catalogues: Catalogues,
@@ -108,6 +185,12 @@ function holding(
     "name",
     "address",
     "holderName",
+    "staff",
+    "advisoryEntity",
+    "protectedArea",
+    "waterBodies",
+    "abstractionPoints",
+    "ownEquipment",
   ]);
   if (f === undefined) {
     return undefined;
@@ -124,6 +207,12 @@ function holding(
     name: optional(f, "name", textOf(150)),
     address: optional(f, "address", textOf(250)),
     holderName: optional(f, "holderName", textOf(150)),
+    staff: optional(f, "staff", listOf(staffMember, 0, MAX_ITEMS)),
+    advisoryEntity: optional(f, "advisoryEntity", advisoryEntity),
+    protectedArea: optional(f, "protectedArea", oneOf(["none", "partial", "whole"])),
+    waterBodies: optional(f, "waterBodies", listOf(waterSource, 0, MAX_ITEMS)),
+    abstractionPoints: optional(f, "abstractionPoints", listOf(waterSource, 0, MAX_ITEMS)),
+    ownEquipment: optional(f, "ownEquipment", listOf(ownEquipment, 0, MAX_ITEMS)),
   });
 }
 
@@ -269,17 +358,48 @@ const treatmentDgc =
     });
   };
 
-/** Reads the list of crop delimitations an activity applies to. */
-const dgcList = <T>(
+/** What a crop delimitation reference points at, ignoring the area. */
+const referenceKey = (reference: DgcReference): string =>
+  "dgc" in reference
+    ? `dgc:${reference.dgc}:${reference.cropRecord ?? ""}`
+    : `declared:${reference.declaredDgc}`;
+
+/**
+ * Reads a list of crop delimitations, reporting one referred to twice: a
+ * repeat means nothing, and the CUE schema forbids it in some blocks.
+ */
+const dgcItems =
+  <T extends DgcReference>(
+    min: number,
+    read: (ctx: Context, value: unknown, path: Path) => T | undefined,
+  ) =>
+  (ctx: Context, value: unknown, path: Path): readonly T[] | undefined => {
+    const seen = new Set<string>();
+    const items = readList(ctx, value, path, min, MAX_DGCS, (item, itemPath) => {
+      const reference = read(ctx, item, itemPath);
+      if (reference === undefined) {
+        return undefined;
+      }
+      const key = referenceKey(reference);
+      if (seen.has(key)) {
+        ctx.report(
+          "DUPLICATE_ITEM",
+          itemPath,
+          "This list already refers to the same crop delimitation.",
+        );
+        return undefined;
+      }
+      seen.add(key);
+      return reference;
+    });
+    return items === undefined ? undefined : Object.freeze(items);
+  };
+
+/** Reads the list of crop delimitations an activity applies to: at least one. */
+const dgcList = <T extends DgcReference>(
   f: Fields,
   read: (ctx: Context, value: unknown, path: Path) => T | undefined,
-): readonly T[] | undefined =>
-  required(f, "dgcs", (ctx, value, path) => {
-    const items = readList(ctx, value, path, 1, MAX_DGCS, (item, itemPath) =>
-      read(ctx, item, itemPath),
-    );
-    return items === undefined ? undefined : Object.freeze(items);
-  });
+): readonly T[] | undefined => required(f, "dgcs", dgcItems(1, read));
 
 const EQUIPMENT_FIELDS = [
   "roma",
@@ -891,6 +1011,154 @@ function irrigation(
   });
 }
 
+function parcel(
+  ctx: Context,
+  catalogues: Catalogues,
+  value: unknown,
+  path: Path,
+): Parcel | undefined {
+  const f = fieldsOf(ctx, value, path, [
+    "number",
+    "sigpac",
+    "area",
+    "sigpacUse",
+    "landUse",
+    "crop",
+    "variety",
+    "irrigated",
+    "irrigationSystem",
+    "protectedCultivation",
+    "protectionType",
+    "certification",
+  ]);
+  if (f === undefined) {
+    return undefined;
+  }
+  const check = checker(ctx, catalogues, undefined);
+  const irrigated = required(f, "irrigated", bool);
+  if (irrigated === false && f.values.has("irrigationSystem")) {
+    ctx.report(
+      "CONFLICT",
+      [...path, "irrigationSystem"],
+      "A dryland parcel has no irrigation system.",
+    );
+  }
+  const protectedCultivation = required(f, "protectedCultivation", bool);
+  if (protectedCultivation === false && f.values.has("protectionType")) {
+    ctx.report(
+      "CONFLICT",
+      [...path, "protectionType"],
+      "An open-air parcel has no protection type.",
+    );
+  }
+  const sigpacUse = required(f, "sigpacUse", textOf(2, /^[A-Z]{2}$/));
+  check("sigpacUse", sigpacUse, [...path, "sigpacUse"]);
+  const crop = optional(f, "crop", intOf(9999));
+  check("crop", crop, [...path, "crop"]);
+  const variety = optional(f, "variety", intOf(9999));
+  check("variety", variety, [...path, "variety"]);
+  const irrigationSystem = optional(f, "irrigationSystem", intOf(99));
+  check("irrigationSystem", irrigationSystem, [...path, "irrigationSystem"]);
+  return build<Parcel>({
+    number: required(f, "number", intOf(99_999, 1)),
+    sigpac: required(f, "sigpac", sigpac),
+    area: required(f, "area", decimalOf(6, 4)),
+    sigpacUse,
+    landUse: required(f, "landUse", oneOf(["crop", "pasture", "forestry"])),
+    crop,
+    variety,
+    irrigated,
+    irrigationSystem,
+    protectedCultivation,
+    protectionType: optional(f, "protectionType", textOf(100)),
+    certification: optional(f, "certification", textOf(150)),
+  });
+}
+
+const heavyMetals = (ctx: Context, value: unknown, path: Path): SoilHeavyMetals | undefined => {
+  const names = ["cadmium", "copper", "nickel", "lead", "zinc", "mercury", "chromium"] as const;
+  const f = fieldsOf(ctx, value, path, names);
+  return f === undefined
+    ? undefined
+    : build<SoilHeavyMetals>(
+        Object.fromEntries(names.map((name) => [name, optional(f, name, decimalOf(5, 3))])),
+      );
+};
+
+const SOIL_PARAMETERS = [
+  "ph",
+  "organicMatter",
+  "phosphorus",
+  "potassium",
+  "nitrogen",
+  "sand",
+  "silt",
+  "clay",
+  "conductivity",
+] as const;
+
+function soilAnalysis(
+  ctx: Context,
+  catalogues: Catalogues,
+  value: unknown,
+  path: Path,
+): SoilAnalysis | undefined {
+  const f = fieldsOf(ctx, value, path, [
+    "id",
+    "deleted",
+    "source",
+    "date",
+    "material",
+    "laboratory",
+    "laboratoryNif",
+    "reportNumber",
+    "analysisTypes",
+    "substances",
+    ...SOIL_PARAMETERS,
+    "heavyMetals",
+    "dgcs",
+  ]);
+  if (f === undefined) {
+    return undefined;
+  }
+  const { id, deleted } = activityHeader(f);
+  return ctx.withRecord(id, () => {
+    const analysed = required(f, "date", date);
+    const check = checker(ctx, catalogues, analysed);
+    const material = optional(f, "material", intOf(9));
+    check("analysedMaterial", material, [...path, "material"]);
+    const parameters = Object.fromEntries(
+      SOIL_PARAMETERS.map((name) => [
+        name,
+        optional(f, name, name === "ph" ? decimalOf(2, 2) : decimalOf(3, 2)),
+      ]),
+    );
+    return build<SoilAnalysis>({
+      id,
+      deleted,
+      source: required(f, "source", oneOf(["laboratory", "map"])),
+      date: analysed,
+      material,
+      laboratory: optional(f, "laboratory", textOf(150)),
+      laboratoryNif: optional(f, "laboratoryNif", nif),
+      reportNumber: optional(f, "reportNumber", textOf(50)),
+      analysisTypes: optional(
+        f,
+        "analysisTypes",
+        codeListOf(9, MAX_ITEMS, (code, codePath) => check("analysisType", code, codePath)),
+      ),
+      substances: optional(
+        f,
+        "substances",
+        codeListOf(9999, MAX_ITEMS, (code, codePath) => check("analysedSubstance", code, codePath)),
+      ),
+      ...parameters,
+      heavyMetals: optional(f, "heavyMetals", heavyMetals),
+      dgcs: optional(f, "dgcs", dgcItems(0, dgcReference)),
+    });
+  });
+}
+
 /** Reads a whole logbook. */
 export function readLogbook(
   ctx: Context,
@@ -905,6 +1173,8 @@ export function readLogbook(
     "fertilisations",
     "fertilisationPlans",
     "irrigations",
+    "parcels",
+    "soilAnalyses",
   ]);
   if (f === undefined) {
     return undefined;
@@ -914,7 +1184,7 @@ export function readLogbook(
   const records = <T>(
     name: string,
     read: (c: Context, cat: Catalogues, v: unknown, p: Path) => T | undefined,
-    idField: "id" | "code",
+    idField: "id" | "code" | "number",
   ): readonly T[] | undefined => {
     const seen = new Set<unknown>();
     return optional(
@@ -948,5 +1218,7 @@ export function readLogbook(
     fertilisations: records("fertilisations", fertilisation, "id"),
     fertilisationPlans: records("fertilisationPlans", fertilisationPlan, "id"),
     irrigations: records("irrigations", irrigation, "id"),
+    parcels: records("parcels", parcel, "number"),
+    soilAnalyses: records("soilAnalyses", soilAnalysis, "id"),
   });
 }

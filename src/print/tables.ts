@@ -17,7 +17,12 @@ import type {
   Irrigation,
   Logbook,
   NutrientShare,
+  OwnEquipment,
+  Parcel,
+  SoilAnalysis,
+  StaffMember,
   Treatment,
+  WaterSource,
 } from "../model.ts";
 import { Context } from "../validate/context.ts";
 import { type DgcLabels, readDgcLabels } from "./labels.ts";
@@ -133,6 +138,9 @@ export class Labeller {
   }
 }
 
+const sigpacText = (s: CropDelimitation["sigpac"]): string =>
+  `SIGPAC ${s.province}:${s.municipality}:${s.aggregate}:${s.zone}:${s.polygon}:${s.parcel}:${s.enclosure}`;
+
 const sigpac = (d: CropDelimitation): string => {
   const s = d.sigpac;
   return `SIGPAC ${s.province}:${s.municipality}:${s.aggregate}:${s.zone}:${s.polygon}:${s.parcel}:${s.enclosure}`;
@@ -158,6 +166,103 @@ const equipment = (
         ? `REGFER ${e.regfer}`
         : `${e.unregisteredId}`;
 
+const PROTECTED_AREA = { none: "No", partial: "Parcialmente", whole: "Totalmente" } as const;
+const LAND_USE = { crop: "Cultivo", pasture: "Pastos", forestry: "Forestal" } as const;
+
+function staffRow(m: StaffMember): Cell[] {
+  return [
+    lines([m.name]),
+    lines([m.nif]),
+    lines([m.ropo === undefined ? undefined : `ROPO ${m.ropo}`]),
+    lines([m.qualification === "adviser" ? "Asesor" : "Usuario profesional"]),
+  ];
+}
+
+const waterRow = (kind: string, w: WaterSource): Cell[] => [
+  lines([kind]),
+  lines([w.name]),
+  lines([w.distance === undefined ? undefined : number(w.distance)]),
+];
+
+function ownEquipmentRow(e: OwnEquipment): Cell[] {
+  return [
+    lines([e.name]),
+    lines([
+      e.roma === undefined ? undefined : `ROMA ${e.roma}`,
+      e.censusReference === undefined ? undefined : `Censo ${e.censusReference}`,
+    ]),
+    lines([e.acquiredOn === undefined ? undefined : date(e.acquiredOn)]),
+    lines([e.lastInspectedOn === undefined ? undefined : date(e.lastInspectedOn)]),
+  ];
+}
+
+function parcelRow(p: Parcel, l: Labeller): Cell[] {
+  return [
+    lines([`Parcela ${p.number}`]),
+    lines([sigpacText(p.sigpac)]),
+    lines([number(p.area)]),
+    lines([
+      l.label("sigpacUse", p.sigpacUse),
+      LAND_USE[p.landUse],
+      l.code("crop", p.crop),
+      l.code("variety", p.variety),
+    ]),
+    lines([
+      p.irrigated ? "Regadío" : "Secano",
+      l.code("irrigationSystem", p.irrigationSystem),
+      p.protectedCultivation ? "Protegido" : "Al aire libre",
+      p.protectionType,
+    ]),
+    lines([p.certification]),
+  ];
+}
+
+const METALS = [
+  ["Cd", "cadmium"],
+  ["Cu", "copper"],
+  ["Ni", "nickel"],
+  ["Pb", "lead"],
+  ["Zn", "zinc"],
+  ["Hg", "mercury"],
+  ["Cr", "chromium"],
+] as const;
+
+function soilRow(a: SoilAnalysis, l: Labeller): Cell[] {
+  const metal = (symbol: string, value: number | undefined): string | undefined =>
+    value === undefined ? undefined : `${symbol}: ${number(value)}`;
+  const percent = (name: string, value: number | undefined): string | undefined =>
+    value === undefined ? undefined : `${name}: ${number(value)} %`;
+  return [
+    lines([date(a.date)]),
+    lines(
+      a.source === "map"
+        ? ["Mapas o registros provinciales"]
+        : [
+            "Análisis",
+            l.code("analysedMaterial", a.material),
+            a.laboratory,
+            a.laboratoryNif === undefined ? undefined : `NIF ${a.laboratoryNif}`,
+            a.reportNumber === undefined ? undefined : `Boletín ${a.reportNumber}`,
+          ],
+    ),
+    lines((a.dgcs ?? []).map((dgc) => l.dgc(dgc))),
+    lines([a.ph === undefined ? undefined : number(a.ph)]),
+    lines([a.organicMatter === undefined ? undefined : number(a.organicMatter)]),
+    lines([a.phosphorus === undefined ? undefined : number(a.phosphorus)]),
+    lines([a.potassium === undefined ? undefined : number(a.potassium)]),
+    lines([
+      percent("N total", a.nitrogen),
+      percent("Arena", a.sand),
+      percent("Limo", a.silt),
+      percent("Arcilla", a.clay),
+      a.conductivity === undefined ? undefined : `Conductividad: ${number(a.conductivity)} dS/m`,
+      ...l.codes("analysisType", a.analysisTypes),
+      ...l.codes("analysedSubstance", a.substances),
+    ]),
+    lines(METALS.map(([symbol, name]) => metal(symbol, a.heavyMetals?.[name]))),
+  ];
+}
+
 function holdingRows(h: Logbook["holding"], l: Labeller): ReadonlyArray<readonly [string, string]> {
   const rows: Array<readonly [string, string | undefined]> = [
     ["Nombre de la explotación", h.name],
@@ -170,6 +275,16 @@ function holdingRows(h: Logbook["holding"], l: Labeller): ReadonlyArray<readonly
     // Identifiers are written with a word that names them, so a spreadsheet
     // never reads one as a number (ADR 0007).
     ["Organismo pagador", l.named("payingAgency", h.payingAgency, "Código")],
+    [
+      "Entidad de asesoramiento",
+      h.advisoryEntity === undefined
+        ? undefined
+        : [h.advisoryEntity.name, h.advisoryEntity.registration].filter(Boolean).join(", "),
+    ],
+    [
+      "En zonas protegidas (art. 35)",
+      h.protectedArea === undefined ? undefined : PROTECTED_AREA[h.protectedArea],
+    ],
   ];
   return rows.filter((row): row is readonly [string, string] => row[1] !== undefined);
 }
@@ -429,10 +544,62 @@ export function tabulate(logbook: Logbook, l: Labeller): Tabulated {
       ordered(logbook.fertilisationPlans, (p) => p.generatedOn).map((p) => planRow(p, l)),
     ),
   ];
+  const h = logbook.holding;
   const delimitations = logbook.cropDelimitations ?? [];
-  if (delimitations.length > 0) {
-    tables.unshift(delimitationsTable(delimitations, l));
-  }
+  const partA: Table[] = [
+    table(
+      "personal",
+      "A.1.c. Personal propio con carné de usuario profesional o asesor",
+      ["Nombre", "NIF", "ROPO", "Condición"],
+      (h.staff ?? []).map(staffRow),
+    ),
+    table(
+      "agua-consumo-humano",
+      "A.1.f y g. Agua para consumo humano",
+      ["Tipo", "Nombre", "Distancia, fuera de la parcela (m)"],
+      [
+        ...(h.waterBodies ?? []).map((w) => waterRow("Masa de agua (art. 33.a)", w)),
+        ...(h.abstractionPoints ?? []).map((w) => waterRow("Punto de captación (art. 33.b)", w)),
+      ],
+    ),
+    table(
+      "equipos-propios",
+      "A.1.h. Equipos de aplicación propios",
+      ["Equipo", "Registro o censo", "Fecha de adquisición", "Última inspección"],
+      (h.ownEquipment ?? []).map(ownEquipmentRow),
+    ),
+    table(
+      "parcelas",
+      "A.2. Parcelas",
+      [
+        "a. Número",
+        "b. Referencia SIGPAC",
+        "c. Superficie (ha)",
+        "d. Uso SIGPAC, aprovechamiento y cultivo",
+        "e. Sistema de cultivo",
+        "f. Certificación",
+      ],
+      [...(logbook.parcels ?? [])].sort((a, b) => a.number - b.number).map((p) => parcelRow(p, l)),
+    ),
+    ...(delimitations.length > 0 ? [delimitationsTable(delimitations, l)] : []),
+    table(
+      "suelo",
+      "A.3. Características del suelo",
+      [
+        "Fecha",
+        "Origen",
+        "Parcela",
+        "pH",
+        "Materia orgánica (%)",
+        "Fósforo asimilable (ppm)",
+        "Potasio asimilable (ppm)",
+        "Otros parámetros",
+        "Metales pesados (mg/kg)",
+      ],
+      ordered(logbook.soilAnalyses, (a) => a.date).map((a) => soilRow(a, l)),
+    ),
+  ];
+  tables.unshift(...partA);
   return {
     title: `Cuaderno de explotación ${logbook.holding.reaCode}`,
     holdingTitle: "A. Datos generales de la explotación",

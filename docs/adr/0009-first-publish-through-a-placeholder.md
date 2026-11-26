@@ -16,7 +16,7 @@ npm's trusted publishing lets the release workflow publish with an OIDC token an
 ## Decision
 
 - **The maintainer creates the package with a placeholder:** version `0.0.0-stage`, a `package.json` and nothing else. It is published from their own npm login, with the dist-tag `stage`, then deprecated as "Placeholder for setting up trusted publishing. Not a release."
-- **They then set the trusted publisher on npmjs.com:** organisation `ie-huss-martinez`, repository `campos-sdk`, workflow `release.yml`, environment `npm`. Publishing access requires two-factor authentication and disallows tokens.
+- **They then set the trusted publisher on npmjs.com:** organisation `ie-huss-martinez`, repository `campos-sdk`, workflow `release.yml`, environment `npm`, with *npm publish* selected under Allowed actions, because a trusted publisher created since September 2026 allows only staged publishing by default. Publishing access requires two-factor authentication and disallows tokens.
 - **The first real version publishes through the workflow,** by trusted publishing with provenance, like every version after it. No npm token is ever stored for this repository; the workflow's token step is removed.
 - **If the version pull request is merged before the package exists,** the publish job stops with an error, and its summary lists these steps. It no longer fails with a bare `ENEEDAUTH`. Re-running the failed job once the steps are done publishes the version.
 - **`private` is removed from `package.json`** in the pull request that prepares the first release, with that release's changeset.

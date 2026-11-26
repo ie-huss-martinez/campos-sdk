@@ -329,7 +329,7 @@ jobs:
             echo "npm login"
             echo "# in an empty folder, with a package.json naming $name at version 0.0.0-stage:"
             echo "npm publish --access public --tag stage"
-            echo "# on npmjs.com: set the trusted publisher, require 2FA and disallow tokens"
+            echo "# on npmjs.com: set the trusted publisher with \"npm publish\" allowed, require 2FA and disallow tokens"
             echo "npm deprecate $name@0.0.0-stage \"Placeholder for setting up trusted publishing. Not a release.\""
             echo "gh run rerun $RUN_ID --failed -R $GITHUB_REPOSITORY"
             echo '```'

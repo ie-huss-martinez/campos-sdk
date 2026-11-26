@@ -7,6 +7,8 @@ plain typed records.
 > **Status:** 0.x. The API may still change between minor versions, and the
 > changelog says how to migrate.
 
+From version 0.1.0, it installs from npm:
+
 ```sh
 npm install @hussmartinez/campos-sdk
 ```
@@ -18,7 +20,8 @@ npm install @hussmartinez/campos-sdk
   treatments, fertilisation, fertilisation plans and irrigation, with SIEX
   catalogue codes.
 - **Validation** that says which record and field breaks which rule, without
-  ever repeating the value.
+  repeating the rejected value. The one exception is an activity's own `id`,
+  which every issue in that activity carries as `recordId`.
 - **CUE JSON** that follows FEGA's common interface (Anexo VI of the SIEX
   technical documentation, document version 3.11.4), ready for a regional IUWS
   endpoint.

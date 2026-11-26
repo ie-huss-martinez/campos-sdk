@@ -1,6 +1,6 @@
 {
   "name": "@hussmartinez/campos-sdk",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Builds Spain's Cuaderno Digital de Explotación Agrícola (CUE): SIEX-ready JSON and the printable logbook, from typed records.",
   "keywords": [
     "cuaderno-de-explotacion",

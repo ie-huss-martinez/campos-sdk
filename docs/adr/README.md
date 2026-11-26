@@ -10,9 +10,10 @@ Use [`template.md`](template.md) for new records. Name files `NNNN-short-title.m
 |---|---|---|
 | [0001](0001-independence-from-the-sdk-family.md) | Independence from the `@hussmartinez` SDK family | Accepted |
 | [0002](0002-scope-and-architecture.md) | Scope and architecture: one model, validated at the boundary, rendered per target | Accepted |
-| [0003](0003-tooling-build-and-release.md) | Tooling, build and release | Accepted |
+| [0003](0003-tooling-build-and-release.md) | Tooling, build and release | Accepted; its first-publish token replaced by [0009](0009-first-publish-through-a-placeholder.md) |
 | [0004](0004-official-fega-files.md) | Official FEGA files: what is committed, and on what terms | Accepted |
 | [0005](0005-logbook-model-validation-and-cue-api.md) | The logbook model, validation and the CUE renderer's API | Accepted |
 | [0006](0006-printable-logbook-as-html.md) | The printable logbook is one self-contained HTML document | Accepted; its note on missing sections amended by [0008](0008-annex-iii-part-a-and-soil-analyses.md) |
 | [0007](0007-csv-export.md) | CSV export: the printed logbook's tables, safe to open in a spreadsheet | Accepted |
 | [0008](0008-annex-iii-part-a-and-soil-analyses.md) | Annex III, Part I, section A in the model, and soil analyses | Accepted; amends [0006](0006-printable-logbook-as-html.md) |
+| [0009](0009-first-publish-through-a-placeholder.md) | The first publish goes through a placeholder, not a token | Accepted; amends [0003](0003-tooling-build-and-release.md) |

@@ -85,7 +85,7 @@ pnpm changeset
 - **The bump:** `patch` for fixes; `minor` for new capabilities, and during `0.x` for breaking changes too; `major` only after `1.0`.
 - **Write the note for users:** what changed for them, the API they'll see, and how to migrate if it breaks.
 
-While `package.json` says `"private": true`, which it does until the first release, Changesets ignores the package, and the check passes without one.
+A package whose `package.json` says `"private": true` is ignored by Changesets and never published.
 
 ## How releases happen
 
@@ -120,11 +120,13 @@ One-time steps for the maintainer.
 
 - **The release App.** The organisation's GitHub App opens the version pull request, so that its checks run. Its client ID and private key are the organisation-level `RELEASE_APP_CLIENT_ID` variable and `RELEASE_APP_PRIVATE_KEY` secret, which must give this repository access.
 - **The `release` and `npm` environments,** limited to `main`, exist already.
-- **The first publish.** npm can't trust a publisher for a package that doesn't exist yet, so the first version needs a token:
-  1. Create a granular npm access token, limited to publishing, that expires within a day, and store it as `NPM_TOKEN` in the `npm` environment.
-  2. Merge a pull request that removes `"private": true` from `package.json`, with a changeset for the first version, then merge the version pull request. The workflow publishes with the token and warns that it was used.
-  3. On npmjs.com, under the package's Settings → Trusted Publisher → GitHub Actions, set organisation `ie-huss-martinez`, repository `campos-sdk`, workflow `release.yml` and environment `npm`. Under Publishing access, require two-factor authentication and disallow tokens.
-  4. Delete `NPM_TOKEN` from the environment, and revoke the token on npmjs.com. Every later version publishes through the trusted publisher, with no token.
+- **The first publish** ([ADR 0009](docs/adr/0009-first-publish-through-a-placeholder.md)). npm can only trust a publisher for a package that exists, so the maintainer creates the package once, from their own npm login, with a placeholder that holds nothing but its `package.json`:
+  1. In an empty folder, write a `package.json` with `"name": "@hussmartinez/campos-sdk"`, `"version": "0.0.0-stage"`, `"license": "Apache-2.0"` and the repository's `repository` field, then run `npm login` and `npm publish --access public --tag stage`.
+  2. On npmjs.com, under the package's Settings → Trusted Publisher → GitHub Actions, set organisation `ie-huss-martinez`, repository `campos-sdk`, workflow `release.yml` and environment `npm`. Under Publishing access, require two-factor authentication and disallow tokens.
+  3. Deprecate the placeholder: `npm deprecate "@hussmartinez/campos-sdk@0.0.0-stage" "Placeholder for setting up trusted publishing. Not a release."`
+  4. Merge the version pull request soon after: a trusted publisher that doesn't publish within a couple of days may lapse, as the SDK family found. The workflow publishes the first real version through trusted publishing, with provenance, like every version after it.
+
+  If the version pull request is merged before the package exists, the publish job stops and its summary lists these steps; re-run the failed job once they're done.
 - **If the repository moves or is renamed,** update the trusted publisher before the next release.
 
 ## Licence

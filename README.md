@@ -4,20 +4,27 @@ A TypeScript library that builds Spain's *Cuaderno Digital de Explotación
 Agrícola* (CUE), the farm logbook the Spanish administration requires, from
 plain typed records.
 
-> **Status:** early development. Nothing is published yet, and the API will
-> change.
+> **Status:** 0.x. The API may still change between minor versions, and the
+> changelog says how to migrate.
 
-## What it will do
+```sh
+npm install @hussmartinez/campos-sdk
+```
 
-- **One document model** for a holding's logbook: the holding (REA code, holder
-  NIF, autonomous community), parcels by SIGPAC reference, plant-protection
-  treatments, fertilisation and irrigation, with SIEX catalogue codes.
+## What it does
+
+- **One document model** for a holding's logbook, covering RD 1311/2012,
+  Annex III, Part I: the holding, its parcels and soil, plant-protection
+  treatments, fertilisation, fertilisation plans and irrigation, with SIEX
+  catalogue codes.
+- **Validation** that says which record and field breaks which rule, without
+  ever repeating the value.
 - **CUE JSON** that follows FEGA's common interface (Anexo VI of the SIEX
-  technical documentation), ready for a regional IUWS endpoint.
-- **A printable logbook** with the fields of RD 1311/2012, Annex III, Part I.
-- **Validation** that says which record and field breaks which rule.
+  technical documentation, document version 3.11.4), ready for a regional IUWS
+  endpoint.
+- **A printable logbook** and **CSV files** with the fields of Annex III, Part I.
 
-It is pure and dependency-light: no network calls, no storage and no
+It is pure and has no runtime dependencies: no network calls, no storage and no
 framework. Sending the document to an administration is left to the
 application.
 
